@@ -1,38 +1,71 @@
 { config, pkgs, ... }:
 
 {
+<<<<<<< Updated upstream
   imports =
     [
       ./hardware-configuration.nix
       ./greetd.nix
       ./zapret.nix
     ];
+=======
+  imports = [
+    ./hardware-configuration.nix
+    ./greetd.nix
+    ./zapret.nix
+  ];
+>>>>>>> Stashed changes
 
-  # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-
-  # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
+<<<<<<< Updated upstream
   networking.hostName = "nixos"; # Define your hostname.
 
   # Enable networking
+=======
+  networking.hostName = "nixos";
+>>>>>>> Stashed changes
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
 
-  # Set your time zone.
   time.timeZone = "Europe/Istanbul";
 
   nix.settings.experimental-features = ["nix-command" "flakes"];
 
+  # XServer ve Wayland desteği
   services.xserver.enable = true;
   programs.xwayland.enable = true;
 
+  # DBus
+  services.dbus.enable = true;
 
-  # Select internationalisation properties.
+  # XDG Portal
+  xdg.portal = {
+    enable = true;
+    extraPortals = with pkgs; [
+      xdg-desktop-portal-gtk
+    ];
+    config = {
+      common = {
+        default = "gtk";
+      };
+      # Niri kendi ayarını yapıyor, onu ezmeyelim
+    };
+  };
+
+  # PipeWire (ses için)
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    jack.enable = true;
+  };
+
   i18n.defaultLocale = "tr_TR.UTF-8";
-
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "tr_TR.UTF-8";
     LC_IDENTIFICATION = "tr_TR.UTF-8";
@@ -43,40 +76,52 @@
     LC_PAPER = "tr_TR.UTF-8";
     LC_TELEPHONE = "tr_TR.UTF-8";
     LC_TIME = "tr_TR.UTF-8";
-    LC_CTYPE = "en_US.UTF-8";
-    LC_MESSAGES = "en_US.UTF-8";
   };
 
-  # Configure keymap in X11
   services.xserver.xkb = {
     layout = "tr";
     variant = "intl";
   };
 
-  # Configure console keymap
   console.keyMap = "trq";
 
-  # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.asus = {
     isNormalUser = true;
     description = "asus";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "audio" "video" ];
     packages = with pkgs; [];
   };
 
-  # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
   programs.niri.enable = true;
 
-programs.steam = {
-  enable = true;
-  remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-  dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
-  localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
-};
+  # Steam yapılandırması
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true;
+    dedicatedServer.openFirewall = true;
+    localNetworkGameTransfers.openFirewall = true;
+    gamescopeSession.enable = true;
+    # XWayland için Steam wrapper
+    extraCompatPackages = with pkgs; [
+      proton-ge-bin
+    ];
+  };
+
+  # Steam için environment variables
+  environment.sessionVariables = {
+    STEAM_EXTRA_COMPAT_TOOLS_PATHS = "$HOME/.steam/root/compatibilitytools.d";
+  };
+
+  # 32-bit desteği (Steam için)
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true;
+  };
 
   environment.systemPackages = with pkgs; [
+<<<<<<< Updated upstream
   tuigreet
   niri
   kitty
@@ -84,5 +129,34 @@ programs.steam = {
   ];
 
   system.stateVersion = "25.11"; # Did you read the comment?
+=======
+    tuigreet
+    niri
+    kitty
+    fuzzel
+    dbus
+    xdg-utils
+    # Tema paketleri
+    gnome-themes-extra
+    adwaita-icon-theme
+  ];
 
+  # Polkit (yetkili işlemler için)
+  security.polkit.enable = true;
+  
+  # GNOME Keyring
+  services.gnome.gnome-keyring.enable = true;
+
+  # Font desteği
+  fonts.packages = with pkgs; [
+    noto-fonts
+    noto-fonts-cjk-sans
+    noto-fonts-color-emoji
+    liberation_ttf
+    fira-code
+    fira-code-symbols
+  ];
+>>>>>>> Stashed changes
+
+  system.stateVersion = "25.11";
 }
