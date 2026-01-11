@@ -72,7 +72,7 @@
   users.users.asus = {
     isNormalUser = true;
     description = "asus";
-    extraGroups = [ "networkmanager" "wheel" "audio" "video" ];
+    extraGroups = [ "networkmanager" "wheel" "audio" "video" "input" ];
     packages = with pkgs; [];
   };
 
@@ -129,7 +129,7 @@
     liberation_ttf
     fira-code
     fira-code-symbols
-    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
+    texlivePackages.jetbrainsmono-otf
   ];
 
   system.stateVersion = "25.11";
