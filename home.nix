@@ -7,6 +7,7 @@
 
   imports = [
     inputs.noctalia.homeModules.default
+    ./modules/terminal.nix
   ];
 
   programs.noctalia-shell = {
@@ -163,7 +164,7 @@
     enable = true;
     components = [ "pkcs11" "secrets" "ssh" ];
   };
- ±
+
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {

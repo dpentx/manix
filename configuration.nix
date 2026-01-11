@@ -1,32 +1,17 @@
 { config, pkgs, ... }:
 
 {
-<<<<<<< Updated upstream
-  imports =
-    [
-      ./hardware-configuration.nix
-      ./greetd.nix
-      ./zapret.nix
-    ];
-=======
   imports = [
     ./hardware-configuration.nix
     ./greetd.nix
     ./zapret.nix
   ];
->>>>>>> Stashed changes
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
-<<<<<<< Updated upstream
-  networking.hostName = "nixos"; # Define your hostname.
-
-  # Enable networking
-=======
   networking.hostName = "nixos";
->>>>>>> Stashed changes
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
 
@@ -51,7 +36,6 @@
       common = {
         default = "gtk";
       };
-      # Niri kendi ayarını yapıyor, onu ezmeyelim
     };
   };
 
@@ -103,7 +87,6 @@
     dedicatedServer.openFirewall = true;
     localNetworkGameTransfers.openFirewall = true;
     gamescopeSession.enable = true;
-    # XWayland için Steam wrapper
     extraCompatPackages = with pkgs; [
       proton-ge-bin
     ];
@@ -121,15 +104,6 @@
   };
 
   environment.systemPackages = with pkgs; [
-<<<<<<< Updated upstream
-  tuigreet
-  niri
-  kitty
-  fuzzel
-  ];
-
-  system.stateVersion = "25.11"; # Did you read the comment?
-=======
     tuigreet
     niri
     kitty
@@ -155,8 +129,8 @@
     liberation_ttf
     fira-code
     fira-code-symbols
+    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
   ];
->>>>>>> Stashed changes
 
   system.stateVersion = "25.11";
 }
