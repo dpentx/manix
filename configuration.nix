@@ -72,9 +72,13 @@
   users.users.asus = {
     isNormalUser = true;
     description = "asus";
-    extraGroups = [ "networkmanager" "wheel" "audio" "video" "input" ];
+    shell = pkgs.zsh;
+    extraGroups = [ "networkmanager" "wheel" "audio" "video" ];
     packages = with pkgs; [];
   };
+
+  # Zsh'ı sistem genelinde etkinleştir
+  programs.zsh.enable = true;
 
   nixpkgs.config.allowUnfree = true;
 
@@ -129,7 +133,6 @@
     liberation_ttf
     fira-code
     fira-code-symbols
-    texlivePackages.jetbrainsmono-otf
   ];
 
   system.stateVersion = "25.11";

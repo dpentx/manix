@@ -7,6 +7,7 @@
 
   imports = [
     inputs.noctalia.homeModules.default
+    ./modules/shell.nix
     ./modules/terminal.nix
   ];
 
@@ -77,16 +78,16 @@
     kdePackages.audiotube
     github-desktop
     
+    # Shell tools
+    bat
+    exa
+    
     # Tema paketleri
     papirus-icon-theme
     catppuccin-gtk
   ];
 
   programs.home-manager.enable = true;
-
-  programs.bash = {
-    enable = true;
-  };
 
   home.sessionVariables = {
     NIXOS_OZONE_WL = "1";
