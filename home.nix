@@ -77,11 +77,6 @@
     prismlauncher
     kdePackages.audiotube
     github-desktop
-    
-    # Shell tools
-    bat
-    exa
-    
     # Tema paketleri
     papirus-icon-theme
     catppuccin-gtk
