@@ -247,11 +247,11 @@
     
     shellAliases = {
       # Sistem - renkli
-      ls = "exa --icons --color=always --group-directories-first";
-      ll = "exa -la --icons --color=always --group-directories-first";
-      la = "exa -a --icons --color=always --group-directories-first";
-      lt = "exa --tree --icons --color=always --level=2";
-      tree = "exa --tree --icons --color=always";
+      ls = "eza --icons --color=always --group-directories-first";
+      ll = "eza -la --icons --color=always --group-directories-first";
+      la = "eza -a --icons --color=always --group-directories-first";
+      lt = "eza --tree --icons --color=always --level=2";
+      tree = "eza --tree --icons --color=always";
       
       cat = "bat --style=auto";
       grep = "grep --color=auto";
@@ -293,10 +293,10 @@
       gclean = "git clean -fd";
       
       # NixOS - flake desteği
-      rebuild = "git add -A && git commit -m 'update' && sudo nixos-rebuild switch --flake .#asus";
-      rebuild-test = "git add -A && sudo nixos-rebuild test --flake .#asus";
-      rebuild-boot = "git add -A && git commit -m 'update' && sudo nixos-rebuild boot --flake .#asus";
-      hm-switch = "git add -A && home-manager switch --flake .#asus";
+      rebuild = "git add -A && git commit -m 'update' && sudo nixos-rebuild switch --flake '.#asus'";
+      rebuild-test = "git add -A && sudo nixos-rebuild test --flake '.#asus'";
+      rebuild-boot = "git add -A && git commit -m 'update' && sudo nixos-rebuild boot --flake '.#asus'";
+      hm-switch = "git add -A && home-manager switch --flake '.#asus'";
       update = "nix flake update && git add flake.lock && git commit -m 'update flake'";
       upgrade = "update && rebuild";
       
