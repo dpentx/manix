@@ -5,6 +5,7 @@
     ./hardware-configuration.nix
     ./greetd.nix
     ./zapret.nix
+    ./modules/qemu.nix
   ];
 
   boot.loader.systemd-boot.enable = true;
