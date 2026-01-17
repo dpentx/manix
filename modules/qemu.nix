@@ -25,10 +25,7 @@
       package = pkgs.qemu_kvm;
       runAsRoot = false;
       swtpm.enable = true;  # TPM emülasyonu (gerekirse)
-      ovmf = {
-        enable = true;      # UEFI desteği
-        packages = [ pkgs.OVMFFull.fd ];
-      };
+      # OVMF UEFI desteği artık varsayılan olarak geliyor
     };
     
     # Performans optimizasyonları
@@ -39,8 +36,8 @@
   # KVM kernel modülü
   boot.kernelModules = [ "kvm-intel" ];  # Intel için (AMD ise "kvm-amd")
   
-  # Kullanıcı izinleri
-  users.users.${config.users.users.${builtins.getEnv "USER"}.name or "asus"} = {
+  # Kullanıcı izinleri - kendi kullanıcı adını buraya yaz
+  users.users.asus = {
     extraGroups = [ "libvirtd" "kvm" ];
   };
 
