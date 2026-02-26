@@ -54,14 +54,14 @@
           ];
         };
       };
-      colorSchemes.predefinedScheme = "Monochrome";
+      colorSchemes.predefinedScheme = "Everforest";
       general = {
         avatarImage = "/home/asus/.face";
         radiusRatio = 0.2;
       };
       location = {
         monthBeforeDay = true;
-        name = "Van, Turkey";
+        name = "Otlukbeli, Turkey";
       };
     };
   };

@@ -10,7 +10,7 @@
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages_zen;
 
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
@@ -108,6 +108,13 @@
     enable32Bit = true;
   };
 
+  virtualisation.waydroid.enable = true;
+  boot.kernelModules = [ "binder_linux" "ashmem_linux" ];
+  systemd = {
+    packages = [ pkgs.waydroid-helper ];
+    services.waydroid-mount.wantedBy = [ "multi-user.target" ];
+  };
+
   environment.systemPackages = with pkgs; [
     tuigreet
     niri
@@ -118,6 +125,7 @@
     # Tema paketleri
     gnome-themes-extra
     adwaita-icon-theme
+    waydroid-helper
   ];
 
   # Polkit (yetkili işlemler için)
