@@ -10,7 +10,10 @@
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages_zen;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+
+  boot.kernelModules = [ "binder_linux" "ashmem_linux" "ip_tables" "iptable_filter" "iptable_nat" "iptable_mangle" ];
+
 
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
@@ -109,7 +112,6 @@
   };
 
   virtualisation.waydroid.enable = true;
-  boot.kernelModules = [ "binder_linux" "ashmem_linux" ];
   systemd = {
     packages = [ pkgs.waydroid-helper ];
     services.waydroid-mount.wantedBy = [ "multi-user.target" ];
@@ -126,6 +128,7 @@
     gnome-themes-extra
     adwaita-icon-theme
     waydroid-helper
+    xwayland-satellite
   ];
 
   # Polkit (yetkili işlemler için)

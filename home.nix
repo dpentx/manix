@@ -190,7 +190,7 @@
     }
 
     environment {
-        DISPLAY ":0"
+        DISPLAY ":1"
     }
 
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
