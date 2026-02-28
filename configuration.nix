@@ -6,14 +6,17 @@
     ./greetd.nix
     ./zapret.nix
     ./modules/qemu.nix
+    # ✅ noctalia.nix korunuyor ama artık sadece bluetooth/power servisleri var
   ];
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages;
 
-  boot.kernelModules = [ "binder_linux" "ashmem_linux" "ip_tables" "iptable_filter" "iptable_nat" "iptable_mangle" ];
-
+  boot.kernelModules = [
+    "binder_linux" "ashmem_linux"
+    "ip_tables" "iptable_filter" "iptable_nat" "iptable_mangle"
+  ];
 
   networking.hostName = "niiha";
   networking.networkmanager.enable = true;
@@ -21,29 +24,19 @@
 
   time.timeZone = "Europe/Istanbul";
 
-  nix.settings.experimental-features = ["nix-command" "flakes"];
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-  # XServer ve Wayland desteği
   services.xserver.enable = true;
   programs.xwayland.enable = true;
 
-  # DBus
   services.dbus.enable = true;
 
-  # XDG Portal
   xdg.portal = {
     enable = true;
-    extraPortals = with pkgs; [
-      xdg-desktop-portal-gtk
-    ];
-    config = {
-      common = {
-        default = "gtk";
-      };
-    };
+    extraPortals = with pkgs; [ xdg-desktop-portal-gtk ];
+    config.common.default = "gtk";
   };
 
-  # PipeWire (ses için)
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
@@ -55,15 +48,15 @@
 
   i18n.defaultLocale = "tr_TR.UTF-8";
   i18n.extraLocaleSettings = {
-    LC_ADDRESS = "tr_TR.UTF-8";
+    LC_ADDRESS        = "tr_TR.UTF-8";
     LC_IDENTIFICATION = "tr_TR.UTF-8";
-    LC_MEASUREMENT = "tr_TR.UTF-8";
-    LC_MONETARY = "tr_TR.UTF-8";
-    LC_NAME = "tr_TR.UTF-8";
-    LC_NUMERIC = "tr_TR.UTF-8";
-    LC_PAPER = "tr_TR.UTF-8";
-    LC_TELEPHONE = "tr_TR.UTF-8";
-    LC_TIME = "tr_TR.UTF-8";
+    LC_MEASUREMENT    = "tr_TR.UTF-8";
+    LC_MONETARY       = "tr_TR.UTF-8";
+    LC_NAME           = "tr_TR.UTF-8";
+    LC_NUMERIC        = "tr_TR.UTF-8";
+    LC_PAPER          = "tr_TR.UTF-8";
+    LC_TELEPHONE      = "tr_TR.UTF-8";
+    LC_TIME           = "tr_TR.UTF-8";
   };
 
   services.xserver.xkb = {
@@ -78,34 +71,28 @@
     description = "asus";
     shell = pkgs.zsh;
     extraGroups = [ "networkmanager" "wheel" "audio" "video" ];
-    packages = with pkgs; [];
+    packages = [];
   };
 
-  # Zsh'ı sistem genelinde etkinleştir
   programs.zsh.enable = true;
 
   nixpkgs.config.allowUnfree = true;
 
   programs.niri.enable = true;
 
-  # Steam yapılandırması
   programs.steam = {
     enable = true;
     remotePlay.openFirewall = true;
     dedicatedServer.openFirewall = true;
     localNetworkGameTransfers.openFirewall = true;
     gamescopeSession.enable = true;
-    extraCompatPackages = with pkgs; [
-      proton-ge-bin
-    ];
+    extraCompatPackages = with pkgs; [ proton-ge-bin ];
   };
 
-  # Steam için environment variables
   environment.sessionVariables = {
     STEAM_EXTRA_COMPAT_TOOLS_PATHS = "$HOME/.steam/root/compatibilitytools.d";
   };
 
-  # 32-bit desteği (Steam için)
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
@@ -121,23 +108,21 @@
     tuigreet
     niri
     kitty
-    fuzzel
+    # ✅ fuzzel kaldırıldı — launcher artık quickshell içinde
     dbus
     xdg-utils
-    # Tema paketleri
     gnome-themes-extra
     adwaita-icon-theme
     waydroid-helper
     xwayland-satellite
+    # Quickshell için iwgetid (wifi bilgisi)
+    wirelesstools
   ];
 
-  # Polkit (yetkili işlemler için)
   security.polkit.enable = true;
 
- # GNOME Keyring
   services.gnome.gnome-keyring.enable = true;
 
-  # Font desteği
   fonts.packages = with pkgs; [
     noto-fonts
     noto-fonts-cjk-sans
@@ -145,6 +130,8 @@
     liberation_ttf
     fira-code
     fira-code-symbols
+    # ✅ Quickshell ikonları için nerd font (opsiyonel ama önerilir)
+    nerd-fonts.jetbrains-mono
   ];
 
   system.stateVersion = "25.11";

@@ -6,65 +6,11 @@
   home.enableNixpkgsReleaseCheck = false;
 
   imports = [
-    inputs.noctalia.homeModules.default
+    # ✅ noctalia kaldırıldı, quickshell modülü eklendi
+    ./modules/quickshell-hm.nix
     ./modules/shell.nix
     ./modules/terminal.nix
   ];
-
-  programs.noctalia-shell = {
-    enable = true;
-    settings = {
-      bar = {
-        density = "compact";
-        position = "right";
-        showCapsule = false;
-        widgets = {
-          left = [
-            {
-              id = "ControlCenter";
-              useDistroLogo = true;
-            }
-            {
-              id = "WiFi";
-            }
-            {
-              id = "Bluetooth";
-            }
-          ];
-          center = [
-            {
-              hideUnoccupied = false;
-              id = "Workspace";
-              labelMode = "none";
-            }
-          ];
-          right = [
-            {
-              alwaysShowPercentage = false;
-              id = "Battery";
-              warningThreshold = 30;
-            }
-            {
-              formatHorizontal = "HH:mm";
-              formatVertical = "HH mm";
-              id = "Clock";
-              useMonospacedFont = true;
-              usePrimaryColor = true;
-            }
-          ];
-        };
-      };
-      colorSchemes.predefinedScheme = "Everforest";
-      general = {
-        avatarImage = "/home/asus/.face";
-        radiusRatio = 0.2;
-      };
-      location = {
-        monthBeforeDay = true;
-        name = "Otlukbeli, Turkey";
-      };
-    };
-  };
 
   home.packages = with pkgs; [
     nautilus
@@ -77,7 +23,6 @@
     prismlauncher
     kdePackages.audiotube
     github-desktop
-    # Tema paketleri
     papirus-icon-theme
     catppuccin-gtk
   ];
@@ -89,7 +34,6 @@
     GTK_THEME = "catppuccin-mocha-peach-standard+default";
   };
 
-  # GTK teması
   gtk = {
     enable = true;
     theme = {
@@ -107,15 +51,10 @@
       name = "Noto Sans";
       size = 11;
     };
-    gtk3.extraConfig = {
-      gtk-application-prefer-dark-theme = true;
-    };
-    gtk4.extraConfig = {
-      gtk-application-prefer-dark-theme = true;
-    };
+    gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
+    gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
   };
 
-  # Qt teması (Steam gibi uygulamalar için)
   qt = {
     enable = true;
     platformTheme.name = "gtk3";
@@ -133,34 +72,25 @@
     x11.enable = true;
   };
 
-  # XDG user directories
   xdg.userDirs = {
     enable = true;
     createDirectories = true;
   };
 
-  # Systemd user services
   systemd.user.startServices = "sd-switch";
-  
-  # XDG Portal ayarları
+
   xdg.portal = {
     enable = true;
-    extraPortals = with pkgs; [
-      xdg-desktop-portal-gtk
-    ];
-    config = {
-      common = {
-        default = "gtk";
-      };
-   };
+    extraPortals = with pkgs; [ xdg-desktop-portal-gtk ];
+    config.common.default = "gtk";
   };
-  
-  # GNOME Keyring
+
   services.gnome-keyring = {
     enable = true;
     components = [ "pkcs11" "secrets" "ssh" ];
   };
 
+  # ─── Niri yapılandırması ──────────────────────────────────────────────────
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -169,7 +99,6 @@
                 variant "intl"
             }
         }
-        
         touchpad {
             tap
             natural-scroll
@@ -194,37 +123,43 @@
     }
 
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
-    spawn-at-startup "sh" "-c" "pgrep -x noctalia-shell || noctalia-shell"
+
+    // ✅ noctalia-shell yerine quickshell
+    spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"
 
     binds {
         Mod+Return { spawn "kitty"; }
-        Mod+D { spawn "fuzzel"; }
+
+        // ✅ Mod+D fuzzel açmak yerine artık kullanılmıyor (quickshell içinde)
+        // Launcher'ı quickshell IPC üzerinden aç:
+        Mod+A { spawn "sh" "-c" "quickshell ipc call launcher toggle"; }
+
         Mod+Q { close-window; }
-        
+
         Mod+Left  { focus-column-left; }
         Mod+Down  { focus-window-down; }
         Mod+Up    { focus-window-up; }
         Mod+Right { focus-column-right; }
-        
+
         Mod+Shift+Left  { move-column-left; }
         Mod+Shift+Down  { move-window-down; }
         Mod+Shift+Up    { move-window-up; }
         Mod+Shift+Right { move-column-right; }
-        
+
         Mod+1 { focus-workspace 1; }
         Mod+2 { focus-workspace 2; }
         Mod+3 { focus-workspace 3; }
         Mod+4 { focus-workspace 4; }
         Mod+5 { focus-workspace 5; }
-        
+
         Mod+Shift+1 { move-column-to-workspace 1; }
         Mod+Shift+2 { move-column-to-workspace 2; }
         Mod+Shift+3 { move-column-to-workspace 3; }
         Mod+Shift+4 { move-column-to-workspace 4; }
         Mod+Shift+5 { move-column-to-workspace 5; }
-        
+
         Mod+Shift+E { quit; }
-        
+
         Print { screenshot; }
         Mod+Print { screenshot-screen; }
         Mod+Shift+Print { screenshot-window; }

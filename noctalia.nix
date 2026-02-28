@@ -1,10 +1,15 @@
-{ pkgs, inputs, ...}:
+{ pkgs, inputs, ... }:
+
+# ─── noctalia.nix — Artık sadece donanım servisleri ──────────────────────────
+# noctalia-shell kaldırıldı. Bluetooth, güç ve UPower servisleri korundu.
+# Quickshell bu servisleri StatusIcons.qml içinde kullanır.
+
 {
- environment.systemPackages = with pkgs; [
-  inputs.noctalia.packages.${pkgs.stdenv.hostPlatform.system}.default
- ];
-# networking.networkManager.enable = true;
- hardware.bluetooth.enable = true;
- services.power-profiles-daemon.enable = true;
- services.upower.enable = true;
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
+
+  services.power-profiles-daemon.enable = true;
+  services.upower.enable = true;
 }
