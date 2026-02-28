@@ -10,12 +10,12 @@
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages;
 
   boot.kernelModules = [ "binder_linux" "ashmem_linux" "ip_tables" "iptable_filter" "iptable_nat" "iptable_mangle" ];
 
 
-  networking.hostName = "nixos";
+  networking.hostName = "niiha";
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
 
@@ -133,8 +133,8 @@
 
   # Polkit (yetkili işlemler için)
   security.polkit.enable = true;
-  
-  # GNOME Keyring
+
+ # GNOME Keyring
   services.gnome.gnome-keyring.enable = true;
 
   # Font desteği
