@@ -15,43 +15,88 @@ PanelWindow {
     color: "transparent"
 
     readonly property color clrBase:    "#CC1E1E2E"
-    readonly property color clrSurface: "#20FFFFFF"
+    readonly property color clrSurface: "#18FFFFFF"
     readonly property color clrText:    "#CDD6F4"
     readonly property color clrSubtext: "#A6ADC8"
     readonly property color clrMuted:   "#6C7086"
     readonly property color clrAccent:  "#FAB387"
 
     property string searchQuery: ""
-    property var appList: []
+    property var    appList:     []
 
+    // ─── Uygulama başlatma — dosya tabanlı, en güvenilir yöntem ──────────
+    // 1. İkon tıklanınca komutu /tmp/qs-exec dosyasına yaz
+    // 2. launcher process'i her zaman "sh /tmp/qs-exec" çalıştırır
+    // 3. running = false → true döngüsü yerine WriteFile ile tetikle
+
+    FileView {
+        id: execFile
+        path: "/tmp/qs-exec"
+        watchChanges: false
+    }
+
+    Process {
+        id: launcher
+        command: ["sh", "/tmp/qs-exec"]
+    }
+
+    // Komutu dosyaya yaz ve çalıştır
+    function launchApp(exec, terminal) {
+        const cmd = terminal
+            ? "kitty -- " + exec + "\n"
+            : exec + "\n"
+        writeExec.command = ["sh", "-c", "printf '%s' " + JSON.stringify(cmd) + " > /tmp/qs-exec"]
+        writeExec.running = false
+        execWriteTimer.start()
+    }
+
+    Process {
+        id: writeExec
+        command: ["sh", "-c", "true"]
+        onRunningChanged: {
+            if (!running) {
+                // Dosya yazıldı, şimdi çalıştır
+                launcher.running = false
+                launchRunTimer.start()
+            }
+        }
+    }
+
+    Timer { id: execWriteTimer;  interval: 30; repeat: false; onTriggered: writeExec.running = true }
+    Timer { id: launchRunTimer;  interval: 50; repeat: false; onTriggered: launcher.running = true }
+
+    // ─── .desktop tarayıcı ────────────────────────────────────────────────
     Process {
         id: appScanner
         command: [
             "sh", "-c",
-            "find /run/current-system/sw/share/applications /home/asus/.nix-profile/share/applications -name '*.desktop' 2>/dev/null | while read f; do " +
+            "find /run/current-system/sw/share/applications " +
+            "/home/asus/.nix-profile/share/applications " +
+            "-name '*.desktop' 2>/dev/null | while read f; do " +
             "name=$(grep -m1 '^Name=' \"$f\" | cut -d= -f2-); " +
-            "exec=$(grep -m1 '^Exec=' \"$f\" | cut -d= -f2- | sed 's/ %[uUfFdDnNickvm]//g; s/%[uUfFdDnNickvm]//g'); " +
+            "exec=$(grep -m1 '^Exec=' \"$f\" | cut -d= -f2- | " +
+            "  sed 's/ %[uUfFdDnNickvm]//g; s/%[uUfFdDnNickvm]//g'); " +
             "icon=$(grep -m1 '^Icon=' \"$f\" | cut -d= -f2-); " +
             "nodisplay=$(grep -m1 '^NoDisplay=' \"$f\" | cut -d= -f2-); " +
             "terminal=$(grep -m1 '^Terminal=' \"$f\" | cut -d= -f2-); " +
             "[ \"$nodisplay\" = 'true' ] && continue; " +
             "[ -z \"$name\" ] && continue; [ -z \"$exec\" ] && continue; " +
-            "echo \"${name}|${exec}|${icon}|${terminal}\"; done | sort -t'|' -k1 -u"
+            "echo \"${name}|${exec}|${icon}|${terminal}\"; " +
+            "done | sort -t'|' -k1 -u"
         ]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
-                const lines = text.trim().split("\n")
                 const apps = []
-                for (const line of lines) {
+                for (const line of text.trim().split("\n")) {
                     if (!line) continue
-                    const parts = line.split("|")
-                    if (parts.length >= 2 && parts[0] && parts[1]) {
+                    const p = line.split("|")
+                    if (p.length >= 2 && p[0] && p[1]) {
                         apps.push({
-                            name: parts[0].trim(),
-                            exec: parts[1].trim(),
-                            icon: (parts[2] || "").trim(),
-                            terminal: (parts[3] || "").trim() === "true"
+                            name:     p[0].trim(),
+                            exec:     p[1].trim(),
+                            icon:     (p[2]||"").trim(),
+                            terminal: (p[3]||"").trim() === "true"
                         })
                     }
                 }
@@ -64,6 +109,7 @@ PanelWindow {
         ? appList
         : appList.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
+    // ─── Karartma ─────────────────────────────────────────────────────────
     Rectangle {
         anchors.fill: parent
         color: "#99000000"
@@ -73,25 +119,17 @@ PanelWindow {
             onClicked: overlay.closeRequested()
         }
 
+        // ─── Çekmece ──────────────────────────────────────────────────────
         Rectangle {
             id: drawer
             anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
             height: parent.height * 0.88
-            color: "transparent"
+            color: overlay.clrBase
             radius: 28
 
-            // Sadece şeffaf koyu arka plan — parlaklık yok
-            Rectangle {
-                anchors.fill: parent
-                radius: parent.radius
-                color: overlay.clrBase
-            }
-
-            // Alt köşe
             Rectangle {
                 anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                height: parent.radius
-                color: overlay.clrBase
+                height: parent.radius; color: parent.color
             }
 
             transform: Translate {
@@ -109,12 +147,14 @@ PanelWindow {
                 }
                 spacing: 14
 
+                // Handle
                 Rectangle {
                     Layout.alignment: Qt.AlignHCenter
                     width: 40; height: 4; radius: 2
                     color: "#40FFFFFF"
                 }
 
+                // Başlık + arama
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 12
@@ -122,52 +162,47 @@ PanelWindow {
                     Text {
                         text: "Uygulamalar"
                         color: overlay.clrText
-                        font.pixelSize: 18
-                        font.bold: true
-                        font.family: "Noto Sans"
+                        font.pixelSize: 18; font.bold: true; font.family: "Noto Sans"
                     }
 
                     Item { Layout.fillWidth: true }
 
                     Rectangle {
-                        width: 200; height: 36
-                        radius: 18
+                        width: 200; height: 36; radius: 18
                         color: overlay.clrSurface
 
                         RowLayout {
                             anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
                             spacing: 8
+
                             Text { text: "🔍"; font.pixelSize: 13 }
+
                             TextInput {
                                 id: searchField
                                 Layout.fillWidth: true
                                 color: overlay.clrText
-                                font.pixelSize: 13
-                                font.family: "Noto Sans"
+                                font.pixelSize: 13; font.family: "Noto Sans"
                                 onTextChanged: overlay.searchQuery = text
+
                                 Text {
                                     anchors.fill: parent
                                     text: "Ara..."
-                                    color: overlay.clrMuted
-                                    font: parent.font
+                                    color: overlay.clrMuted; font: parent.font
                                     visible: parent.text.length === 0
                                     verticalAlignment: Text.AlignVCenter
                                 }
                             }
+
                             Text {
-                                text: "✕"
-                                color: overlay.clrMuted
-                                font.pixelSize: 12
+                                text: "✕"; color: overlay.clrMuted; font.pixelSize: 12
                                 visible: searchField.text.length > 0
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: searchField.text = ""
-                                }
+                                MouseArea { anchors.fill: parent; onClicked: searchField.text = "" }
                             }
                         }
                     }
                 }
 
+                // ─── Grid ─────────────────────────────────────────────────
                 ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -177,7 +212,7 @@ PanelWindow {
                     GridView {
                         id: appGrid
                         width: parent.width
-                        cellWidth: Math.floor(width / 5)
+                        cellWidth:  Math.floor(width / 5)
                         cellHeight: 96
                         model: overlay.filteredApps
 
@@ -193,8 +228,7 @@ PanelWindow {
 
                                 Rectangle {
                                     id: iconCard
-                                    width: 52; height: 52
-                                    radius: 14
+                                    width: 52; height: 52; radius: 14
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     color: "#18FFFFFF"
 
@@ -205,26 +239,21 @@ PanelWindow {
                                         source: appItem.modelData.icon !== ""
                                             ? "image://icon/" + appItem.modelData.icon : ""
                                         fillMode: Image.PreserveAspectFit
-                                        onStatusChanged: {
-                                            if (status === Image.Error) visible = false
-                                        }
+                                        onStatusChanged: if (status === Image.Error) visible = false
                                     }
 
                                     Text {
                                         anchors.centerIn: parent
                                         text: appItem.modelData.name.charAt(0).toUpperCase()
                                         color: overlay.clrAccent
-                                        font.pixelSize: 18
-                                        font.bold: true
+                                        font.pixelSize: 18; font.bold: true
                                         visible: iconImg.status !== Image.Ready
                                     }
 
                                     Rectangle {
-                                        id: pressOverlay
-                                        anchors.fill: parent
-                                        radius: parent.radius
-                                        color: "white"
-                                        opacity: 0
+                                        id: pressOvr
+                                        anchors.fill: parent; radius: parent.radius
+                                        color: "white"; opacity: 0
                                         Behavior on opacity { NumberAnimation { duration: 80 } }
                                     }
 
@@ -236,14 +265,13 @@ PanelWindow {
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
-                                        onPressed:  { pressOverlay.opacity = 0.15; iconCard.scale = 0.9 }
-                                        onReleased: { pressOverlay.opacity = 0; iconCard.scale = 1.0 }
+                                        onPressed:  { pressOvr.opacity = 0.18; iconCard.scale = 0.88 }
+                                        onReleased: { pressOvr.opacity = 0;    iconCard.scale = 1.0  }
                                         onClicked: {
-                                            const cmd = appItem.modelData.terminal
-                                                ? "kitty -- " + appItem.modelData.exec + " &"
-                                                : appItem.modelData.exec + " &"
-                                            launcher.command = ["sh", "-c", cmd]
-                                            launcher.running = true
+                                            overlay.launchApp(
+                                                appItem.modelData.exec,
+                                                appItem.modelData.terminal
+                                            )
                                             overlay.closeRequested()
                                         }
                                     }
@@ -254,11 +282,9 @@ PanelWindow {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: appItem.modelData.name
                                     color: overlay.clrText
-                                    font.pixelSize: 10
-                                    font.family: "Noto Sans"
+                                    font.pixelSize: 10; font.family: "Noto Sans"
                                     horizontalAlignment: Text.AlignHCenter
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 1
+                                    elide: Text.ElideRight; maximumLineCount: 1
                                 }
                             }
                         }
@@ -267,16 +293,6 @@ PanelWindow {
             }
         }
     }
-
-    // Her uygulama için ayrı process spawn et
-    property string pendingCmd: ""
-
-    Process {
-        id: launcher
-        command: ["sh", "-c", "true"]
-    }
-
-
 
     onVisibleChanged: {
         if (visible) {
