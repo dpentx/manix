@@ -6,17 +6,12 @@
     ./greetd.nix
     ./zapret.nix
     ./modules/qemu.nix
-    # ✅ noctalia.nix korunuyor ama artık sadece bluetooth/power servisleri var
+    #./noctalia.nix
   ];
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages;
-
-  boot.kernelModules = [
-    "binder_linux" "ashmem_linux"
-    "ip_tables" "iptable_filter" "iptable_nat" "iptable_mangle"
-  ];
+  boot.kernelPackages = pkgs.linuxPackages_zen;
 
   networking.hostName = "niiha";
   networking.networkmanager.enable = true;
@@ -80,43 +75,23 @@
 
   programs.niri.enable = true;
 
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true;
-    dedicatedServer.openFirewall = true;
-    localNetworkGameTransfers.openFirewall = true;
-    gamescopeSession.enable = true;
-    extraCompatPackages = with pkgs; [ proton-ge-bin ];
-  };
-
-  environment.sessionVariables = {
-    STEAM_EXTRA_COMPAT_TOOLS_PATHS = "$HOME/.steam/root/compatibilitytools.d";
-  };
-
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
-  };
-
-  virtualisation.waydroid.enable = true;
-  systemd = {
-    packages = [ pkgs.waydroid-helper ];
-    services.waydroid-mount.wantedBy = [ "multi-user.target" ];
   };
 
   environment.systemPackages = with pkgs; [
     tuigreet
     niri
     kitty
-    # ✅ fuzzel kaldırıldı — launcher artık quickshell içinde
+    git
     dbus
     xdg-utils
     gnome-themes-extra
     adwaita-icon-theme
-    waydroid-helper
     xwayland-satellite
-    # Quickshell için iwgetid (wifi bilgisi)
     wirelesstools
+    playerctl
   ];
 
   security.polkit.enable = true;
@@ -130,7 +105,6 @@
     liberation_ttf
     fira-code
     fira-code-symbols
-    # ✅ Quickshell ikonları için nerd font (opsiyonel ama önerilir)
     nerd-fonts.jetbrains-mono
   ];
 

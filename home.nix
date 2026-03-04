@@ -132,7 +132,7 @@
 
         // ✅ Mod+D fuzzel açmak yerine artık kullanılmıyor (quickshell içinde)
         // Launcher'ı quickshell IPC üzerinden aç:
-        Mod+A { spawn "sh" "-c" "quickshell ipc call launcher toggle"; }
+        Mod+A { spawn "sh" "-c" "touch /tmp/qs-toggle"; }
 
         Mod+Q { close-window; }
 

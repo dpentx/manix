@@ -1,47 +1,62 @@
-// shell.qml — Ana giriş noktası
-// Quickshell, bu dosyayı otomatik olarak yükler.
-
-pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 ShellRoot {
     id: root
 
-    // Açık/kapalı durumu tüm bileşenler tarafından paylaşılır
     property bool launcherVisible: false
+    property int  lastMtime: 0
 
-    // Her ekran için ayrı bir üst bar oluştur
+    // Her ekran için üst bar
     Variants {
         model: Quickshell.screens
-
         TopBar {
             required property ShellScreen modelData
             screen: modelData
-            onToggleLauncher: root.launcherVisible = !root.launcherVisible
         }
     }
 
-    // Uygulama çekmecesi (tek, birincil ekranda)
-    LauncherOverlay {
-        id: launcherOverlay
-        visible: root.launcherVisible
-        screen: Quickshell.screens[0]
-        onCloseRequested: root.launcherVisible = false
+    // Launcher — sadece açıkken yükle, kapanınca bellekten sil
+    Loader {
+        id: launcherLoader
+        active: root.launcherVisible
+        sourceComponent: Component {
+            LauncherOverlay {
+                screen: Quickshell.screens[0]
+                visible: true
+                onCloseRequested: root.launcherVisible = false
+            }
+        }
     }
 
-    // Niri keybinding'den gelen IPC komutlarını dinle
-    // Niri config'de: Mod+A { spawn "sh" "-c" "quickshell ipc call launcher toggle"; }
-    IpcHandler {
-        target: "launcher"
-        function toggle(): void {
-            root.launcherVisible = !root.launcherVisible
+    // Toggle: /tmp/qs-toggle dosyasının mtime'ını 200ms'de bir kontrol et
+    Timer {
+        interval: 200
+        running: true
+        repeat: true
+        onTriggered: mtimePoller.running = true
+    }
+
+    Process {
+        id: mtimePoller
+        command: ["sh", "-c", "stat -c %Y /tmp/qs-toggle 2>/dev/null || echo 0"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const t = parseInt(text.trim())
+                if (t !== 0 && t !== root.lastMtime) {
+                    if (root.lastMtime !== 0) {
+                        root.launcherVisible = !root.launcherVisible
+                    }
+                    root.lastMtime = t
+                }
+            }
         }
-        function show(): void {
-            root.launcherVisible = true
-        }
-        function hide(): void {
-            root.launcherVisible = false
-        }
+    }
+
+    // Başlangıçta dosyayı oluştur
+    Process {
+        command: ["sh", "-c", "touch /tmp/qs-toggle"]
+        running: true
     }
 }

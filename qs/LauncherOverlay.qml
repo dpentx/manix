@@ -1,159 +1,173 @@
-// LauncherOverlay.qml — One UI tarzı uygulama çekmecesi
-// Ekranın altından yukarı kayarak açılır.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Services.DesktopEntries
+import Quickshell.Io
 
 PanelWindow {
     id: overlay
 
     signal closeRequested()
 
-    // Tüm ekranı kapla, dışlama yok
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
+    anchors { top: true; bottom: true; left: true; right: true }
     exclusiveZone: -1
     focusable: true
     color: "transparent"
 
-    // ─── Renkler ──────────────────────────────────────────────────────────
-    readonly property color clrBase:    "#1E1E2E"
-    readonly property color clrMantle:  "#181825"
-    readonly property color clrSurface: "#313244"
+    readonly property color clrBase:    "#CC1E1E2E"
+    readonly property color clrSurface: "#20FFFFFF"
     readonly property color clrText:    "#CDD6F4"
     readonly property color clrSubtext: "#A6ADC8"
+    readonly property color clrMuted:   "#6C7086"
     readonly property color clrAccent:  "#FAB387"
 
-    // Arama filtresi
     property string searchQuery: ""
+    property var appList: []
 
-    // ─── Arka plan: yarı saydam karartma ──────────────────────────────────
+    Process {
+        id: appScanner
+        command: [
+            "sh", "-c",
+            "find /run/current-system/sw/share/applications /home/asus/.nix-profile/share/applications -name '*.desktop' 2>/dev/null | while read f; do " +
+            "name=$(grep -m1 '^Name=' \"$f\" | cut -d= -f2-); " +
+            "exec=$(grep -m1 '^Exec=' \"$f\" | cut -d= -f2- | sed 's/ %[uUfFdDnNickvm]//g; s/%[uUfFdDnNickvm]//g'); " +
+            "icon=$(grep -m1 '^Icon=' \"$f\" | cut -d= -f2-); " +
+            "nodisplay=$(grep -m1 '^NoDisplay=' \"$f\" | cut -d= -f2-); " +
+            "terminal=$(grep -m1 '^Terminal=' \"$f\" | cut -d= -f2-); " +
+            "[ \"$nodisplay\" = 'true' ] && continue; " +
+            "[ -z \"$name\" ] && continue; [ -z \"$exec\" ] && continue; " +
+            "echo \"${name}|${exec}|${icon}|${terminal}\"; done | sort -t'|' -k1 -u"
+        ]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n")
+                const apps = []
+                for (const line of lines) {
+                    if (!line) continue
+                    const parts = line.split("|")
+                    if (parts.length >= 2 && parts[0] && parts[1]) {
+                        apps.push({
+                            name: parts[0].trim(),
+                            exec: parts[1].trim(),
+                            icon: (parts[2] || "").trim(),
+                            terminal: (parts[3] || "").trim() === "true"
+                        })
+                    }
+                }
+                overlay.appList = apps
+            }
+        }
+    }
+
+    property var filteredApps: searchQuery.length === 0
+        ? appList
+        : appList.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
     Rectangle {
         anchors.fill: parent
-        color: "#CC000000"   // %80 siyah
+        color: "#99000000"
 
-        // Tıklanınca kapat
         MouseArea {
             anchors.fill: parent
             onClicked: overlay.closeRequested()
         }
 
-        // ─── Çekmece paneli ───────────────────────────────────────────────
         Rectangle {
             id: drawer
-            anchors {
-                bottom: parent.bottom
-                left: parent.left
-                right: parent.right
-            }
-            // Yükseklik: ekranın %85'i
-            height: parent.height * 0.85
-            color: overlay.clrBase
-            radius: 28   // Üst köşeler — One UI imzası
+            anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+            height: parent.height * 0.88
+            color: "transparent"
+            radius: 28
 
-            // Sadece alt kısım köşesiz olsun
+            // Sadece şeffaf koyu arka plan — parlaklık yok
             Rectangle {
-                anchors {
-                    bottom: parent.bottom
-                    left: parent.left
-                    right: parent.right
-                }
-                height: parent.radius
-                color: parent.color
+                anchors.fill: parent
+                radius: parent.radius
+                color: overlay.clrBase
             }
 
-            // ─── Slide-up animasyonu ─────────────────────────────────────
+            // Alt köşe
+            Rectangle {
+                anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+                height: parent.radius
+                color: overlay.clrBase
+            }
+
             transform: Translate {
-                id: slideTransform
                 y: overlay.visible ? 0 : drawer.height
                 Behavior on y {
-                    NumberAnimation {
-                        duration: 320
-                        easing.type: Easing.OutCubic
-                    }
+                    NumberAnimation { duration: 380; easing.type: Easing.OutCubic }
                 }
             }
 
-            // ─── İçerik ───────────────────────────────────────────────────
             ColumnLayout {
                 anchors {
                     fill: parent
-                    topMargin: 16
-                    bottomMargin: 16
-                    leftMargin: 16
-                    rightMargin: 16
+                    topMargin: 12; bottomMargin: 24
+                    leftMargin: 24; rightMargin: 24
                 }
-                spacing: 16
+                spacing: 14
 
-                // Üst tutamaç (handle) — One UI tarzı
                 Rectangle {
                     Layout.alignment: Qt.AlignHCenter
-                    width: 48
-                    height: 4
-                    radius: 2
-                    color: overlay.clrSurface
+                    width: 40; height: 4; radius: 2
+                    color: "#40FFFFFF"
                 }
 
-                // Arama çubuğu
-                Rectangle {
+                RowLayout {
                     Layout.fillWidth: true
-                    height: 48
-                    radius: 24
-                    color: overlay.clrSurface
+                    spacing: 12
 
-                    RowLayout {
-                        anchors {
-                            fill: parent
-                            leftMargin: 16
-                            rightMargin: 16
-                        }
-                        spacing: 10
+                    Text {
+                        text: "Uygulamalar"
+                        color: overlay.clrText
+                        font.pixelSize: 18
+                        font.bold: true
+                        font.family: "Noto Sans"
+                    }
 
-                        Text {
-                            text: "🔍"
-                            font.pixelSize: 16
-                        }
+                    Item { Layout.fillWidth: true }
 
-                        TextInput {
-                            id: searchField
-                            Layout.fillWidth: true
-                            color: overlay.clrText
-                            font.pixelSize: 15
-                            font.family: "Noto Sans"
-                            placeholderText: "Uygulama ara..."
-                            placeholderTextColor: overlay.clrSubtext
-                            onTextChanged: overlay.searchQuery = text
-                            focus: overlay.visible
+                    Rectangle {
+                        width: 200; height: 36
+                        radius: 18
+                        color: overlay.clrSurface
 
-                            // Catppuccin cursor rengi
-                            cursorDelegate: Rectangle {
-                                width: 2
-                                color: overlay.clrAccent
+                        RowLayout {
+                            anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                            spacing: 8
+                            Text { text: "🔍"; font.pixelSize: 13 }
+                            TextInput {
+                                id: searchField
+                                Layout.fillWidth: true
+                                color: overlay.clrText
+                                font.pixelSize: 13
+                                font.family: "Noto Sans"
+                                onTextChanged: overlay.searchQuery = text
+                                Text {
+                                    anchors.fill: parent
+                                    text: "Ara..."
+                                    color: overlay.clrMuted
+                                    font: parent.font
+                                    visible: parent.text.length === 0
+                                    verticalAlignment: Text.AlignVCenter
+                                }
                             }
-                        }
-
-                        // Temizle butonu
-                        Text {
-                            text: "✕"
-                            color: overlay.clrSubtext
-                            font.pixelSize: 14
-                            visible: searchField.text.length > 0
-
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: searchField.text = ""
+                            Text {
+                                text: "✕"
+                                color: overlay.clrMuted
+                                font.pixelSize: 12
+                                visible: searchField.text.length > 0
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: searchField.text = ""
+                                }
                             }
                         }
                     }
                 }
 
-                // ─── Uygulama ızgarası ────────────────────────────────────
                 ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -163,104 +177,84 @@ PanelWindow {
                     GridView {
                         id: appGrid
                         width: parent.width
-                        cellWidth: Math.floor(width / 5)   // 5 sütun
-                        cellHeight: 100
-
-                        // DesktopEntries üzerinden tüm uygulamaları listele
-                        model: {
-                            const apps = DesktopEntries.applications
-                            if (overlay.searchQuery.length === 0) return apps
-
-                            // Arama filtresi
-                            return apps.filter(app =>
-                                app.name.toLowerCase().includes(
-                                    overlay.searchQuery.toLowerCase()
-                                )
-                            )
-                        }
+                        cellWidth: Math.floor(width / 5)
+                        cellHeight: 96
+                        model: overlay.filteredApps
 
                         delegate: Item {
+                            id: appItem
                             width: appGrid.cellWidth
                             height: appGrid.cellHeight
-
                             required property var modelData
 
                             Column {
                                 anchors.centerIn: parent
-                                spacing: 6
+                                spacing: 7
 
-                                // ─── İkon kutusu ─────────────────────────
                                 Rectangle {
-                                    width: 56
-                                    height: 56
-                                    radius: 16   // One UI yuvarlatılmış ikonlar
-                                    color: overlay.clrSurface
+                                    id: iconCard
+                                    width: 52; height: 52
+                                    radius: 14
                                     anchors.horizontalCenter: parent.horizontalCenter
+                                    color: "#18FFFFFF"
 
-                                    // XDG ikon
                                     Image {
+                                        id: iconImg
                                         anchors.centerIn: parent
-                                        width: 36
-                                        height: 36
-                                        source: modelData.icon !== "" 
-                                            ? "image://icon/" + modelData.icon 
-                                            : ""
+                                        width: 32; height: 32
+                                        source: appItem.modelData.icon !== ""
+                                            ? "image://icon/" + appItem.modelData.icon : ""
                                         fillMode: Image.PreserveAspectFit
-                                        
-                                        // İkon yüklenemezse fallback
                                         onStatusChanged: {
-                                            if (status === Image.Error) {
-                                                visible = false
-                                                fallbackText.visible = true
-                                            }
+                                            if (status === Image.Error) visible = false
                                         }
                                     }
 
-                                    // İkon bulunamazsa baş harfi göster
                                     Text {
-                                        id: fallbackText
                                         anchors.centerIn: parent
-                                        text: modelData.name.charAt(0).toUpperCase()
+                                        text: appItem.modelData.name.charAt(0).toUpperCase()
                                         color: overlay.clrAccent
-                                        font.pixelSize: 20
+                                        font.pixelSize: 18
                                         font.bold: true
-                                        visible: false
+                                        visible: iconImg.status !== Image.Ready
                                     }
 
-                                    // Tıklama efekti
                                     Rectangle {
+                                        id: pressOverlay
                                         anchors.fill: parent
                                         radius: parent.radius
                                         color: "white"
                                         opacity: 0
-                                        id: clickOverlay
+                                        Behavior on opacity { NumberAnimation { duration: 80 } }
+                                    }
 
-                                        NumberAnimation on opacity {
-                                            id: clickAnim
-                                            from: 0.15
-                                            to: 0
-                                            duration: 250
-                                            running: false
-                                        }
+                                    scale: 1.0
+                                    Behavior on scale {
+                                        NumberAnimation { duration: 120; easing.type: Easing.OutBack }
                                     }
 
                                     MouseArea {
                                         anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onPressed:  { pressOverlay.opacity = 0.15; iconCard.scale = 0.9 }
+                                        onReleased: { pressOverlay.opacity = 0; iconCard.scale = 1.0 }
                                         onClicked: {
-                                            clickAnim.running = true
-                                            modelData.launch()
+                                            const cmd = appItem.modelData.terminal
+                                                ? "kitty -- " + appItem.modelData.exec + " &"
+                                                : appItem.modelData.exec + " &"
+                                            launcher.command = ["sh", "-c", cmd]
+                                            launcher.running = true
                                             overlay.closeRequested()
                                         }
                                     }
                                 }
 
-                                // Uygulama adı
                                 Text {
                                     width: appGrid.cellWidth - 8
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.name
+                                    text: appItem.modelData.name
                                     color: overlay.clrText
-                                    font.pixelSize: 11
+                                    font.pixelSize: 10
                                     font.family: "Noto Sans"
                                     horizontalAlignment: Text.AlignHCenter
                                     elide: Text.ElideRight
@@ -274,11 +268,21 @@ PanelWindow {
         }
     }
 
-    // Açılınca arama kutusunu sıfırla
+    // Her uygulama için ayrı process spawn et
+    property string pendingCmd: ""
+
+    Process {
+        id: launcher
+        command: ["sh", "-c", "true"]
+    }
+
+
+
     onVisibleChanged: {
         if (visible) {
             searchField.text = ""
             searchField.forceActiveFocus()
+            appScanner.running = true
         }
     }
 }
