@@ -14,5 +14,6 @@
     "quickshell/modules/Clock.qml".source        = ../qs/modules/Clock.qml;
     "quickshell/modules/Workspaces.qml".source   = ../qs/modules/Workspaces.qml;
     "quickshell/modules/StatusIcons.qml".source  = ../qs/modules/StatusIcons.qml;
+    "quickshell/Wallhaven.qml".source = ../qs/wallhaven.qml;
   };
 }

@@ -12,66 +12,72 @@ PanelWindow {
 
     implicitHeight: 32 + panelExtra
     property int panelExtra: {
-        if (mediaPanelOpen && clock.hasMedia) return 90
-        if (btPanelOpen)   return Math.max(btPanelCol.implicitHeight  + 28, 60)
-        if (wifiPanelOpen) return Math.max(wifiPanelCol.implicitHeight + 28, 60)
+        if (volPopupOpen)   return 236
+        if (mediaPanelOpen) return clock.hasMedia ? 96 : 44
+        if (btPanelOpen)    return btPanelCol.implicitHeight   + 28
+        if (wifiPanelOpen)  return wifiPanelCol.implicitHeight + 28
         return 0
     }
-    Behavior on implicitHeight { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+    Behavior on implicitHeight { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
     exclusiveZone: 32
+    focusable: true
     color: "transparent"
 
-    readonly property color clrBase:    "#B01E1E2E"
-    readonly property color clrPanel:   "#EE1E1E2E"
-    readonly property color clrSurf:    "#22FFFFFF"
-    readonly property color clrSurf2:   "#35FFFFFF"
-    readonly property color clrText:    "#CDD6F4"
-    readonly property color clrSub:     "#A6ADC8"
-    readonly property color clrMuted:   "#6C7086"
-    readonly property color clrAccent:  "#FAB387"
-    readonly property color clrGreen:   "#A6E3A1"
-    readonly property color clrRed:     "#F38BA8"
-    readonly property color clrBlue:    "#89B4FA"
+    // ── Everforest ────────────────────────────────────────────────────────
+    readonly property color clrBase:   "#CC2D353B"
+    readonly property color clrPanel:  "#F02D353B"
+    readonly property color clrSurf:   "#404D5660"
+    readonly property color clrSurf2:  "#554D5660"
+    readonly property color clrText:   "#D3C6AA"
+    readonly property color clrSub:    "#9DA9A0"
+    readonly property color clrMuted:  "#7A8478"
+    readonly property color clrAccent: "#E69875"
+    readonly property color clrGreen:  "#A7C080"
+    readonly property color clrRed:    "#E67E80"
+    readonly property color clrBlue:   "#7FBBB3"
 
+    // State
     property bool mediaPanelOpen: false
     property bool btPanelOpen:    false
     property bool wifiPanelOpen:  false
 
-    // BT state
-    property bool   btPowered:  false
-    property var    btAllDevices: []    // { name, mac, connected }
+    property bool   btPowered:    false
+    property var    btAllDevices: []
 
-    // WiFi state
+    property bool   wifiEnabled:   true
     property bool   wifiConnected: false
     property string wifiSsid:      ""
     property var    wifiNetworks:  []
-    property string wifiPassTarget: ""
-    property string wifiPassInput:  ""
-    property bool   wifiPassMode:   false
+    property var    savedSsids:    []
+    property string wifiConnectTarget: ""
+    property string wifiConnectPass:   ""
+    property string wifiPassInput:     ""
+    property string wifiPassExpandedSsid: ""
 
-    // ─── Process'ler ──────────────────────────────────────────────────────
+    property int  volume: 50
+    property bool muted:  false
+    property bool volPopupOpen: false
+
+    // ── Process'ler ───────────────────────────────────────────────────────
     Process {
         id: btPoller
         command: ["sh", "-c",
-            "powered=$(bluetoothctl show | grep 'Powered:' | awk '{print $2}'); " +
-            "echo \"POWERED:$powered\"; " +
+            "echo POWERED:$(bluetoothctl show | grep 'Powered:' | awk '{print $2}');" +
             "bluetoothctl devices | while read _ mac name; do " +
-            "  connected=$(bluetoothctl info $mac | grep 'Connected:' | awk '{print $2}'); " +
-            "  echo \"DEV:${mac}:${connected}:${name}\"; " +
-            "done"]
+            "  conn=$(bluetoothctl info $mac | grep 'Connected:' | awk '{print $2}'); " +
+            "  echo \"DEV:${mac}:${conn}:${name}\"; done"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
                 const lines = text.trim().split("\n")
                 const devs = []
                 for (const l of lines) {
-                    if (l.startsWith("POWERED:"))
-                        bar.btPowered = l.includes("yes")
+                    if (l.startsWith("POWERED:")) bar.btPowered = l.includes("yes")
                     else if (l.startsWith("DEV:")) {
                         const p = l.substring(4).split(":")
-                        if (p.length >= 3) {
-                            const mac  = p[0] + ":" + p[1] + ":" + p[2] + ":" + p[3] + ":" + p[4] + ":" + p[5]
+                        if (p.length >= 7) {
+                            const mac  = p.slice(0,6).join(":")
                             const conn = p[6] === "yes"
                             const name = p.slice(7).join(":")
                             if (name) devs.push({ mac, connected: conn, name })
@@ -83,7 +89,9 @@ PanelWindow {
         }
     }
 
-    Process { id: btToggleCmd; command: ["sh", "-c", bar.btPowered ? "bluetoothctl power off" : "bluetoothctl power on"]; onRunningChanged: if (!running) btPoller.running = true }
+    readonly property string btToggleShCmd: bar.btPowered
+        ? "bluetoothctl power off" : "bluetoothctl power on"
+    Process { id: btToggleCmd; command: ["sh","-c", bar.btToggleShCmd]; onRunningChanged: if (!running) btPoller.running = true }
 
     property string btActionCmd: ""
     Process {
@@ -91,14 +99,9 @@ PanelWindow {
         command: ["sh", "-c", bar.btActionCmd || "true"]
         onRunningChanged: if (!running) btDelayTimer.start()
     }
-    Timer { id: btDelayTimer; interval: 1200; repeat: false; onTriggered: btPoller.running = true }
-    Timer { id: btActionTimer; interval: 50; repeat: false; onTriggered: btActionExec.running = true }
-
-    function btAction(cmd) {
-        btActionCmd = cmd
-        btActionExec.running = false
-        btActionTimer.start()
-    }
+    Timer { id: btDelayTimer;  interval: 1200; repeat: false; onTriggered: btPoller.running = true }
+    Timer { id: btActionTimer; interval: 50;   repeat: false; onTriggered: btActionExec.running = true }
+    function btAction(cmd) { btActionCmd = cmd; btActionExec.running = false; btActionTimer.start() }
 
     Process {
         id: wifiPoller
@@ -114,6 +117,23 @@ PanelWindow {
     }
 
     Process {
+        id: wifiStatusPoller
+        command: ["sh", "-c", "nmcli radio wifi"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: bar.wifiEnabled = text.trim() === "enabled"
+        }
+    }
+
+    readonly property string wifiToggleShCmd: bar.wifiEnabled
+        ? "nmcli radio wifi off" : "nmcli radio wifi on"
+    Process {
+        id: wifiToggleCmd
+        command: ["sh", "-c", bar.wifiToggleShCmd]
+        onRunningChanged: if (!running) { wifiPoller.running = true; wifiStatusPoller.running = true }
+    }
+
+    Process {
         id: wifiListPoller
         command: ["sh", "-c",
             "nmcli -t -f SSID,SIGNAL,ACTIVE,SECURITY dev wifi list 2>/dev/null | " +
@@ -126,41 +146,72 @@ PanelWindow {
                 for (const l of text.trim().split("\n")) {
                     if (!l) continue
                     const p = l.split("|")
-                    if (p[0]) nets.push({
-                        ssid:     p[0],
-                        signal:   parseInt(p[1]||0),
-                        active:   p[2] === "yes",
-                        secured:  p[3] !== "" && p[3] !== "--"
-                    })
+                    if (p[0]) nets.push({ ssid:p[0], signal:parseInt(p[1]||0), active:p[2]==="yes", secured:p[3]!==""&&p[3]!=="--" })
                 }
                 bar.wifiNetworks = nets
+                savedNetPoller.running = true
             }
         }
     }
 
-    property string wifiConnectTarget: ""
-    property string wifiConnectPass:   ""
+    Process {
+        id: savedNetPoller
+        command: ["sh", "-c", "nmcli -t -f NAME con show 2>/dev/null"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                bar.savedSsids = text.trim().split("\n").map(s => s.trim()).filter(s => s)
+            }
+        }
+    }
+
+    readonly property string wifiConnShCmd:
+        bar.wifiConnectPass !== ""
+        ? "nmcli dev wifi connect \"" + bar.wifiConnectTarget + "\" password \"" + bar.wifiConnectPass + "\" &"
+        : "nmcli con up \"" + bar.wifiConnectTarget + "\" 2>/dev/null || nmcli dev wifi connect \"" + bar.wifiConnectTarget + "\" &"
     Process {
         id: wifiConnectCmd
-        command: ["sh", "-c",
-            bar.wifiConnectPass !== ""
-            ? "nmcli dev wifi connect \"" + bar.wifiConnectTarget + "\" password \"" + bar.wifiConnectPass + "\" &"
-            : "nmcli con up \"" + bar.wifiConnectTarget + "\" 2>/dev/null || nmcli dev wifi connect \"" + bar.wifiConnectTarget + "\" &"]
-        onRunningChanged: if (!running) { wifiPoller.running = true; bar.wifiPassMode = false; bar.wifiPassInput = "" }
+        command: ["sh", "-c", bar.wifiConnShCmd]
+        onRunningChanged: if (!running) { wifiPoller.running = true; bar.wifiPassInput = ""; bar.wifiPassExpandedSsid = "" }
     }
+    Timer { id: wifiConnTimer; interval: 60; repeat: false; onTriggered: wifiConnectCmd.running = true }
+    Timer { id: inlinePassTimer; interval: 200; repeat: false; onTriggered: {} }
+
+    Process {
+        id: volPoller
+        command: ["sh", "-c", "pamixer --get-volume; pamixer --get-mute"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n")
+                bar.volume = parseInt(lines[0]) || 0
+                bar.muted  = lines[1] === "true"
+            }
+        }
+    }
+    Process { id: volMuteCmd; command: ["pamixer","--toggle-mute"];   onRunningChanged: if (!running) volPoller.running = true }
+    Process { id: volUpCmd;   command: ["pamixer","--increase","5"];  onRunningChanged: if (!running) volPoller.running = true }
+    Process { id: volDownCmd; command: ["pamixer","--decrease","5"];  onRunningChanged: if (!running) volPoller.running = true }
+
+    property int volSetTarget: 50
+    Process {
+        id: volSetCmd
+        command: ["sh", "-c", "pamixer --set-volume " + bar.volSetTarget]
+        onRunningChanged: if (!running) volPoller.running = true
+    }
+    Timer { id: volSetTimer; interval: 30; repeat: false; onTriggered: volSetCmd.running = true }
 
     Process { id: mediaPrev; command: ["playerctl", "previous"] }
     Process { id: mediaPlay; command: ["playerctl", "play-pause"] }
     Process { id: mediaNext; command: ["playerctl", "next"] }
 
-    Timer { id: wifiConnTimer; interval: 60; repeat: false; onTriggered: wifiConnectCmd.running = true }
-
     Timer {
         interval: 15000; running: true; repeat: true
-        onTriggered: { btPoller.running = true; wifiPoller.running = true }
+        onTriggered: { btPoller.running = true; wifiPoller.running = true; volPoller.running = true }
     }
 
-    // ─── Bar ──────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    // ── One UI Bar ─────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
     Rectangle {
         id: barBg
         anchors { top: parent.top; left: parent.left; right: parent.right }
@@ -168,9 +219,10 @@ PanelWindow {
         color: bar.clrBase
 
         RowLayout {
-            anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
+            anchors { fill: parent; leftMargin: 16; rightMargin: 16 }
             spacing: 0
 
+            // ── Sol: Saat + Tarih ─────────────────────────────────────────
             Clock {
                 id: clock
                 Layout.alignment: Qt.AlignVCenter
@@ -184,6 +236,7 @@ PanelWindow {
 
             Item { Layout.fillWidth: true }
 
+            // ── Orta: Workspace noktaları ─────────────────────────────────
             Workspaces {
                 Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
                 activeColor:   bar.clrAccent
@@ -192,130 +245,259 @@ PanelWindow {
 
             Item { Layout.fillWidth: true }
 
-            // ── BT butonu ─────────────────────────────────────────────────
-            Rectangle {
-                width: btBtnRow.implicitWidth + 16; height: 22; radius: 11
+            // ── Sağ: İkonlar — One UI tarzı düz, minimal ─────────────────
+            Row {
                 Layout.alignment: Qt.AlignVCenter
-                color: bar.btPowered ? Qt.rgba(0.98,0.70,0.53,0.20) : Qt.rgba(1,1,1,0.07)
-                Row {
-                    id: btBtnRow
-                    anchors.centerIn: parent
-                    spacing: 4
-                    // Nerd font bluetooth ikonu
-                    Text {
-                        text: "\uf293"   // 󰊓
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
-                        color: bar.btPowered ? bar.clrAccent : bar.clrMuted
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        visible: bar.btAllDevices.filter(d => d.connected).length > 0
-                        text: bar.btAllDevices.filter(d => d.connected).length + ""
-                        color: bar.clrAccent; font.pixelSize: 10; font.bold: true
-                        font.family: "Noto Sans"
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                MouseArea {
-                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        bar.btPanelOpen    = !bar.btPanelOpen
-                        bar.wifiPanelOpen  = false
-                        bar.mediaPanelOpen = false
-                        if (bar.btPanelOpen) btPoller.running = true
-                    }
-                }
-            }
+                spacing: 14
 
-            Item { width: 6 }
-
-            // ── WiFi butonu ───────────────────────────────────────────────
-            Rectangle {
-                width: wifiBtnRow.implicitWidth + 16; height: 22; radius: 11
-                Layout.alignment: Qt.AlignVCenter
-                color: bar.wifiConnected ? Qt.rgba(0.65,0.89,0.63,0.18) : Qt.rgba(1,1,1,0.07)
-                Row {
-                    id: wifiBtnRow
-                    anchors.centerIn: parent
-                    spacing: 5
-                    Text {
-                        // Nerd font wifi ikonu
-                        text: bar.wifiConnected ? "\udb82\udd96" : "\udb82\udd97"  // 󰤖 / 󰤗
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
-                        color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Text {
-                        visible: bar.wifiConnected
-                        text: bar.wifiSsid
-                        color: bar.clrGreen; font.pixelSize: 10; font.bold: true
-                        font.family: "Noto Sans"
-                        anchors.verticalCenter: parent.verticalCenter
-                        elide: Text.ElideRight
-                        width: Math.min(implicitWidth, 80)
+                // Volume ikon — tıkla popup aç, scroll ile değiştir
+                Text {
+                    id: volIcon
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.volPopupOpen   = !bar.volPopupOpen
+                            bar.btPanelOpen    = false
+                            bar.wifiPanelOpen  = false
+                            bar.mediaPanelOpen = false
+                        }
+                        onWheel: function(wheel) {
+                            if (wheel.angleDelta.y > 0) volUpCmd.running = true
+                            else volDownCmd.running = true
+                        }
                     }
                 }
-                MouseArea {
-                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        bar.wifiPanelOpen  = !bar.wifiPanelOpen
-                        bar.btPanelOpen    = false
-                        bar.mediaPanelOpen = false
-                        bar.wifiPassMode   = false
-                        if (bar.wifiPanelOpen) wifiListPoller.running = true
+
+                // BT ikon
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf293"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.btPowered
+                        ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
+                        : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.btPanelOpen    = !bar.btPanelOpen
+                            bar.wifiPanelOpen  = false
+                            bar.mediaPanelOpen = false
+                            bar.volPopupOpen   = false
+                            if (bar.btPanelOpen) btPoller.running = true
+                        }
+                    }
+                }
+
+                // WiFi ikon
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf1eb"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.wifiPanelOpen  = !bar.wifiPanelOpen
+                            bar.btPanelOpen    = false
+                            bar.mediaPanelOpen = false
+                            bar.volPopupOpen   = false
+                            bar.wifiPassExpandedSsid = ""
+                            if (bar.wifiPanelOpen) wifiListPoller.running = true
+                        }
                     }
                 }
             }
         }
     }
 
-    // ─── Medya paneli ─────────────────────────────────────────────────────
+    // ── Volume popup — One UI pill ──────────────────────────────────────
+    Rectangle {
+        id: volPopup
+        visible: bar.volPopupOpen
+
+        anchors.right:       barBg.right
+        anchors.rightMargin: 16
+        anchors.top:         barBg.bottom
+        anchors.topMargin:   8
+
+        width:  56
+        height: 228
+        radius: 28
+        color:  "#F0333C43"   // Everforest surface, koyu ve opak
+
+        // ── Üç nokta ────────────────────────────────────────────────────
+        Row {
+            anchors.top:              parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin:        14
+            spacing: 4
+            Repeater {
+                model: 3
+                Rectangle {
+                    width: 4; height: 4; radius: 2
+                    color: bar.clrMuted
+                }
+            }
+        }
+
+        // ── Slider ──────────────────────────────────────────────────────
+        Item {
+            id: volSliderArea
+            anchors.top:              parent.top
+            anchors.bottom:           volMuteBtn.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin:        38
+            anchors.bottomMargin:     8
+            width: parent.width
+
+            // Track arka plan
+            Rectangle {
+                id: volTrackBg
+                width: 6
+                height: parent.height
+                radius: 3
+                color: bar.clrSurf
+                anchors.centerIn: parent
+            }
+
+            // Doluluk — aşağıdan yukarı
+            Rectangle {
+                width:  6
+                radius: 3
+                height: volTrackBg.height * (bar.muted ? 0 : bar.volume / 100)
+                color:  bar.muted ? bar.clrRed : bar.clrGreen
+                anchors.bottom:           volTrackBg.bottom
+                anchors.horizontalCenter: volTrackBg.horizontalCenter
+                Behavior on height { NumberAnimation { duration: 60 } }
+            }
+
+            // Thumb knob
+            Rectangle {
+                width:  32; height: 32; radius: 16
+                color:  bar.muted ? bar.clrRed : bar.clrAccent
+                anchors.horizontalCenter: volTrackBg.horizontalCenter
+                y: volTrackBg.y + volTrackBg.height * (1 - (bar.muted ? 0 : bar.volume / 100)) - height / 2
+                Behavior on y { NumberAnimation { duration: 60 } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: bar.muted ? "M" : bar.volume
+                    color: "#2D353B"
+                    font.pixelSize: bar.volume >= 100 ? 8 : 9
+                    font.bold: true
+                    font.family: "Noto Sans"
+                }
+            }
+
+            // Tıklama + sürükleme
+            MouseArea {
+                anchors.fill: volTrackBg
+                anchors.margins: -16   // kolay tıklamak için geniş alan
+                cursorShape: Qt.SizeVerCursor
+                preventStealing: true
+
+                onPressed:        setVol(mouseY)
+                onPositionChanged: setVol(mouseY)
+                onWheel: function(wheel) {
+                    if (wheel.angleDelta.y > 0) volUpCmd.running = true
+                    else volDownCmd.running = true
+                }
+
+                function setVol(my) {
+                    const h   = volTrackBg.height
+                    const pct = Math.max(0, Math.min(100,
+                        Math.round((1 - my / h) * 100)
+                    ))
+                    bar.volSetTarget = pct
+                    volSetCmd.running = false
+                    volSetTimer.start()
+                }
+            }
+        }
+
+        // ── Alt ikon: müzik notu / mute toggle ──────────────────────────
+        Rectangle {
+            id: volMuteBtn
+            width:  40; height: 40; radius: 20
+            color:  bar.muted
+                        ? Qt.rgba(0.90, 0.49, 0.50, 0.30)
+                        : Qt.rgba(1, 1, 1, 0.08)
+            anchors.bottom:           parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottomMargin:     8
+
+            Text {
+                anchors.centerIn: parent
+                text: bar.muted ? "\uf026" : "\uf025"
+                font.family:   "JetBrainsMono Nerd Font"
+                font.pixelSize: 15
+                color: bar.muted ? bar.clrRed : bar.clrSub
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape:  Qt.PointingHandCursor
+                onClicked:    volMuteCmd.running = true
+            }
+        }
+    }
+
+        // ── Medya paneli ──────────────────────────────────────────────────────
     Rectangle {
         anchors { top: barBg.bottom; left: parent.left }
-        width: 280; height: 86
+        width: 290
+        height: clock.hasMedia ? 96 : 40
         radius: 12; color: bar.clrPanel
-        visible: bar.mediaPanelOpen && clock.hasMedia
+        visible: bar.mediaPanelOpen
+        Behavior on height { NumberAnimation { duration: 180 } }
 
         Rectangle {
             anchors { top: parent.top; left: parent.left }
-            width: parent.radius; height: parent.radius; color: parent.color
+            width: parent.radius
+            height: parent.radius
+            color: parent.color
         }
 
         Column {
             anchors { fill: parent; margins: 14 }
-            spacing: 4
+            spacing: 6
 
             Text {
+                visible: !clock.hasMedia
+                text: "Oynatıcı yok"; color: bar.clrMuted
+                font.pixelSize: 11; font.family: "Noto Sans"
+            }
+
+            Text {
+                visible: clock.hasMedia
                 text: clock.mediaTitle; color: bar.clrText
                 font.pixelSize: 13; font.bold: true; font.family: "Noto Sans"
                 elide: Text.ElideRight; width: parent.width
             }
             Text {
+                visible: clock.hasMedia
                 text: clock.mediaArtist; color: bar.clrSub
                 font.pixelSize: 11; font.family: "Noto Sans"
                 elide: Text.ElideRight; width: parent.width
             }
-
             Row {
+                visible: clock.hasMedia
                 spacing: 8; anchors.horizontalCenter: parent.horizontalCenter
                 Repeater {
-                    model: [
-                        { icon: "\uf049", act: 0 },   // 
-                        { icon: clock.mediaPlaying ? "\uf04c" : "\uf04b", act: 1 },  //  / 
-                        { icon: "\uf050", act: 2 }    // 
-                    ]
+                    model: [{ icon: "\uf049", act:0 }, { icon: clock.mediaPlaying ? "\uf04c" : "\uf04b", act:1 }, { icon: "\uf050", act:2 }]
                     Rectangle {
                         required property var modelData
                         width: 28; height: 28; radius: 14
                         color: modelData.act === 1 ? bar.clrAccent : bar.clrSurf
-                        Text {
-                            anchors.centerIn: parent; text: modelData.icon
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 11
-                            color: modelData.act === 1 ? "#1E1E2E" : bar.clrText
-                        }
+                        Text { anchors.centerIn: parent; text: modelData.icon; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: modelData.act === 1 ? "#2D353B" : bar.clrText }
                         MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             onClicked: {
@@ -330,17 +512,18 @@ PanelWindow {
         }
     }
 
-    // ─── BT paneli ────────────────────────────────────────────────────────
+    // ── BT paneli ─────────────────────────────────────────────────────────
     Rectangle {
         anchors { top: barBg.bottom; right: parent.right }
-        width: 250
-        height: btPanelCol.implicitHeight + 24
+        width: 250; height: btPanelCol.implicitHeight + 24
         radius: 12; color: bar.clrPanel
         visible: bar.btPanelOpen
 
         Rectangle {
             anchors { top: parent.top; right: parent.right }
-            width: parent.radius; height: parent.radius; color: parent.color
+            width: parent.radius
+            height: parent.radius
+            color: parent.color
         }
 
         Column {
@@ -348,284 +531,158 @@ PanelWindow {
             anchors { fill: parent; margins: 14 }
             spacing: 10
 
-            // Başlık + toggle
             Row {
                 width: parent.width
-                Text {
-                    text: "Bluetooth"; color: bar.clrText
-                    font.pixelSize: 13; font.bold: true; font.family: "Noto Sans"
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 52
-                }
+                Text { text: "Bluetooth"; color: bar.clrText; font.pixelSize: 13; font.bold: true; font.family: "Noto Sans"; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 52 }
                 Rectangle {
                     width: 44; height: 24; radius: 12
                     color: bar.btPowered ? bar.clrAccent : bar.clrSurf
                     anchors.verticalCenter: parent.verticalCenter
                     Behavior on color { ColorAnimation { duration: 150 } }
                     Rectangle {
-                        width: 18; height: 18; radius: 9; color: "white"
-                        anchors.verticalCenter: parent.verticalCenter
+                        width: 18; height: 18; radius: 9; color: "white"; anchors.verticalCenter: parent.verticalCenter
                         x: bar.btPowered ? parent.width - width - 3 : 3
                         Behavior on x { NumberAnimation { duration: 150 } }
                     }
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: btToggleCmd.running = true
-                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: btToggleCmd.running = true }
                 }
             }
 
-            // Cihaz listesi
             Repeater {
                 model: bar.btAllDevices
-
                 Rectangle {
                     required property var modelData
                     width: btPanelCol.width; height: 36; radius: 8
-                    color: modelData.connected
-                           ? Qt.rgba(0.98,0.70,0.53,0.12)
-                           : bar.clrSurf
-
+                    color: modelData.connected ? Qt.rgba(0.46,0.73,0.70,0.12) : bar.clrSurf
                     Row {
                         anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
                         spacing: 6
-
-                        // Bağlantı durumu noktası
+                        Rectangle { width:6; height:6; radius:3; color: modelData.connected ? bar.clrBlue : bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: modelData.name; color: modelData.connected ? bar.clrBlue : bar.clrText; font.pixelSize:11; font.family:"Noto Sans"; font.bold: modelData.connected; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; width: parent.width - 6 - 6 - 60 }
+                        Item { width: 1 }
                         Rectangle {
-                            width: 6; height: 6; radius: 3
-                            color: modelData.connected ? bar.clrAccent : bar.clrMuted
+                            width:26; height:26; radius:6
+                            color: modelData.connected ? Qt.rgba(0.90,0.49,0.50,0.20) : Qt.rgba(0.65,0.75,0.50,0.18)
                             anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: modelData.name
-                            color: modelData.connected ? bar.clrAccent : bar.clrText
-                            font.pixelSize: 11; font.family: "Noto Sans"
-                            font.bold: modelData.connected
-                            anchors.verticalCenter: parent.verticalCenter
-                            elide: Text.ElideRight
-                            width: parent.width - 6 - 6 - 28*3 - 6*2 - 10
-                        }
-
-                        Item { Layout.fillWidth: true; width: 1 }
-
-                        // Bağlan / Bağlantıyı kes
-                        Rectangle {
-                            width: 26; height: 26; radius: 6
-                            color: modelData.connected ? Qt.rgba(0.95,0.24,0.33,0.20) : Qt.rgba(0.65,0.89,0.63,0.18)
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text {
-                                anchors.centerIn: parent
-                                text: modelData.connected ? "\uf127" : "\uf293"  // unlink / bluetooth
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
-                                color: modelData.connected ? bar.clrRed : bar.clrGreen
-                            }
+                            Text { anchors.centerIn: parent; text: modelData.connected ? "\uf127" : "\uf293"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:11; color: modelData.connected ? bar.clrRed : bar.clrGreen }
                             MouseArea {
                                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (modelData.connected) {
-                                        btAction("bluetoothctl disconnect " + modelData.mac)
-                                    } else {
-                                        btAction("bluetoothctl connect " + modelData.mac)
-                                    }
-                                }
+                                onClicked: btAction(modelData.connected ? "bluetoothctl disconnect " + modelData.mac : "bluetoothctl connect " + modelData.mac)
                             }
                         }
-
-                        // Unut
                         Rectangle {
-                            width: 26; height: 26; radius: 6
-                            color: Qt.rgba(0.95,0.24,0.33,0.12)
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text {
-                                anchors.centerIn: parent
-                                text: "\uf1f8"   // trash
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11; color: bar.clrRed
-                            }
-                            MouseArea {
-                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    btAction("bluetoothctl remove " + modelData.mac)
-                                }
-                            }
+                            width:26; height:26; radius:6; color: Qt.rgba(0.90,0.49,0.50,0.12); anchors.verticalCenter: parent.verticalCenter
+                            Text { anchors.centerIn: parent; text: "\uf1f8"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:11; color: bar.clrRed }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: btAction("bluetoothctl remove " + modelData.mac) }
                         }
                     }
                 }
             }
 
-            Text {
-                visible: bar.btAllDevices.length === 0 && bar.btPowered
-                text: "Eşleşmiş cihaz yok"; color: bar.clrMuted
-                font.pixelSize: 11; font.family: "Noto Sans"
-            }
-            Text {
-                visible: !bar.btPowered
-                text: "Bluetooth kapalı"; color: bar.clrMuted
-                font.pixelSize: 11; font.family: "Noto Sans"
-            }
+            Text { visible: bar.btAllDevices.length === 0 && bar.btPowered;  text: "Eşleşmiş cihaz yok"; color: bar.clrMuted; font.pixelSize:11; font.family:"Noto Sans" }
+            Text { visible: !bar.btPowered; text: "Bluetooth kapalı"; color: bar.clrMuted; font.pixelSize:11; font.family:"Noto Sans" }
         }
     }
 
-    // ─── WiFi paneli ──────────────────────────────────────────────────────
+    // ── WiFi paneli ───────────────────────────────────────────────────────
     Rectangle {
         anchors { top: barBg.bottom; right: parent.right }
-        width: 260
-        height: wifiPanelCol.implicitHeight + 24
+        width: 260; height: wifiPanelCol.implicitHeight + 24
         radius: 12; color: bar.clrPanel
         visible: bar.wifiPanelOpen
 
         Rectangle {
             anchors { top: parent.top; right: parent.right }
-            width: parent.radius; height: parent.radius; color: parent.color
+            width: parent.radius
+            height: parent.radius
+            color: parent.color
         }
 
         Column {
             id: wifiPanelCol
             anchors { fill: parent; margins: 14 }
-            spacing: 8
+            spacing: 6
 
-            Text {
-                text: "WiFi"; color: bar.clrText
-                font.pixelSize: 13; font.bold: true; font.family: "Noto Sans"
-            }
-
-            // Şifre giriş modu
-            Rectangle {
+            Row {
                 width: parent.width
-                height: bar.wifiPassMode ? 42 : 0
-                visible: bar.wifiPassMode
-                radius: 8; color: bar.clrSurf2
-                clip: true
-                Behavior on height { NumberAnimation { duration: 180 } }
-
-                Row {
-                    anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                    spacing: 8
-
-                    Text {
-                        text: "\uf023"   // lock
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 12; color: bar.clrSub
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    TextInput {
-                        id: wifiPassInput
-                        width: parent.width - 28 - 8 - 26 - 8 - 20
-                        color: bar.clrText; font.pixelSize: 12; font.family: "Noto Sans"
-                        echoMode: TextInput.Password
-                        anchors.verticalCenter: parent.verticalCenter
-                        onTextChanged: bar.wifiPassInput = text
-                        Text {
-                            anchors.fill: parent
-                            text: "Şifre girin..."
-                            color: bar.clrMuted; font: parent.font
-                            visible: parent.text.length === 0
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        Keys.onReturnPressed: connectWithPass()
-                    }
-
+                Text { text: "WiFi"; color: bar.clrText; font.pixelSize:13; font.bold:true; font.family:"Noto Sans"; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 52 }
+                Rectangle {
+                    width:44; height:24; radius:12
+                    color: bar.wifiEnabled ? bar.clrGreen : bar.clrSurf
+                    anchors.verticalCenter: parent.verticalCenter
+                    Behavior on color { ColorAnimation { duration: 150 } }
                     Rectangle {
-                        width: 26; height: 26; radius: 6
-                        color: Qt.rgba(0.65,0.89,0.63,0.20)
-                        anchors.verticalCenter: parent.verticalCenter
-                        Text {
-                            anchors.centerIn: parent
-                            text: "\uf00c"   // check
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 11; color: bar.clrGreen
-                        }
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: connectWithPass()
-                        }
+                        width:18; height:18; radius:9; color:"white"; anchors.verticalCenter: parent.verticalCenter
+                        x: bar.wifiEnabled ? parent.width - width - 3 : 3
+                        Behavior on x { NumberAnimation { duration: 150 } }
                     }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: wifiToggleCmd.running = true }
                 }
             }
 
-            // Ağ listesi
             Repeater {
                 model: bar.wifiNetworks
-
-                Rectangle {
+                Column {
                     required property var modelData
-                    width: wifiPanelCol.width; height: 32; radius: 8
-                    color: modelData.active
-                           ? Qt.rgba(0.65,0.89,0.63,0.15)
-                           : Qt.rgba(1,1,1,0.05)
+                    width: wifiPanelCol.width; spacing: 4
 
-                    Row {
-                        anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                        spacing: 6
-
-                        Text {
-                            text: modelData.active ? "\udb82\udd96" : "\udb82\udd91"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 11
-                            color: modelData.active ? bar.clrGreen : bar.clrMuted
-                            anchors.verticalCenter: parent.verticalCenter
+                    Rectangle {
+                        width: parent.width; height: 34; radius: 8
+                        color: modelData.active ? Qt.rgba(0.65,0.75,0.50,0.18)
+                             : bar.wifiPassExpandedSsid === modelData.ssid ? Qt.rgba(0.46,0.73,0.70,0.12)
+                             : Qt.rgba(1,1,1,0.04)
+                        Row {
+                            anchors { fill: parent; leftMargin:10; rightMargin:10 }
+                            spacing:6
+                            Text { text:"\uf1eb"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:12; color: modelData.active ? bar.clrGreen : modelData.signal > 60 ? bar.clrSub : bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: modelData.ssid; color: modelData.active ? bar.clrGreen : bar.clrText; font.pixelSize:11; font.family:"Noto Sans"; font.bold: modelData.active; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; width: parent.width - 18 - 6 - 16 - 6 - 28 - 10 }
+                            Item { width:1 }
+                            Text { visible: modelData.secured; text:"\uf023"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:10; color: bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: modelData.signal + "%"; color: bar.clrMuted; font.pixelSize:10; font.family:"Noto Sans"; anchors.verticalCenter: parent.verticalCenter }
                         }
-
-                        Text {
-                            text: modelData.ssid
-                            color: modelData.active ? bar.clrGreen : bar.clrText
-                            font.pixelSize: 11; font.family: "Noto Sans"
-                            font.bold: modelData.active
-                            anchors.verticalCenter: parent.verticalCenter
-                            elide: Text.ElideRight
-                            width: parent.width - 11 - 6 - 30 - 6 - 20
-                        }
-
-                        Item { width: 1 }
-
-                        Text {
-                            text: modelData.secured ? "\uf023" : "\uf09c"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 10; color: bar.clrMuted
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: modelData.signal + "%"; color: bar.clrMuted
-                            font.pixelSize: 10; font.family: "Noto Sans"
-                            anchors.verticalCenter: parent.verticalCenter
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor; visible: !modelData.active
+                            onClicked: {
+                                const isSaved = bar.savedSsids.indexOf(modelData.ssid) >= 0
+                                bar.wifiConnectTarget = modelData.ssid
+                                if (!modelData.secured || isSaved) {
+                                    bar.wifiConnectPass = ""; bar.wifiPassExpandedSsid = ""
+                                    wifiConnTimer.start()
+                                } else {
+                                    bar.wifiPassExpandedSsid = bar.wifiPassExpandedSsid === modelData.ssid ? "" : modelData.ssid
+                                    bar.wifiPassInput = ""
+                                }
+                            }
                         }
                     }
 
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        visible: !modelData.active
-                        onClicked: {
-                            if (modelData.secured) {
-                                bar.wifiPassTarget  = modelData.ssid
-                                bar.wifiPassMode    = true
-                                bar.wifiConnectTarget = modelData.ssid
-                                wifiPassInput.text  = ""
-                                wifiPassInput.forceActiveFocus()
-                            } else {
-                                bar.wifiConnectTarget = modelData.ssid
-                                bar.wifiConnectPass   = ""
-                                wifiConnTimer.start()
+                    Rectangle {
+                        width: parent.width
+                        height: bar.wifiPassExpandedSsid === modelData.ssid ? 38 : 0
+                        visible: height > 2; radius:8; color: bar.clrSurf2; clip:true
+                        Behavior on height { NumberAnimation { duration:180; easing.type: Easing.OutCubic } }
+                        Row {
+                            anchors { fill:parent; leftMargin:10; rightMargin:10 }
+                            spacing:8; visible: parent.height > 10
+                            Text { text:"\uf023"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:12; color: bar.clrSub; anchors.verticalCenter: parent.verticalCenter }
+                            TextInput {
+                                width: parent.width - 62; color: bar.clrText; font.pixelSize:12; font.family:"Noto Sans"
+                                echoMode: TextInput.Password; anchors.verticalCenter: parent.verticalCenter
+                                onTextChanged: bar.wifiPassInput = text
+                                Keys.onReturnPressed: { bar.wifiConnectPass = bar.wifiPassInput; wifiConnTimer.start() }
+                                Text { anchors.fill:parent; text:"Şifre girin..."; color: bar.clrMuted; font:parent.font; visible: parent.text.length === 0; verticalAlignment: Text.AlignVCenter }
+                            }
+                            Rectangle {
+                                width:26; height:26; radius:6; color: Qt.rgba(0.65,0.75,0.50,0.20); anchors.verticalCenter: parent.verticalCenter
+                                Text { anchors.centerIn:parent; text:"\uf00c"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:11; color: bar.clrGreen }
+                                MouseArea { anchors.fill:parent; cursorShape: Qt.PointingHandCursor; onClicked: { bar.wifiConnectPass = bar.wifiPassInput; wifiConnTimer.start() } }
                             }
                         }
                     }
                 }
             }
 
-            Text {
-                visible: bar.wifiNetworks.length === 0
-                text: "Ağ taranıyor..."; color: bar.clrMuted
-                font.pixelSize: 11; font.family: "Noto Sans"
-            }
+            Text { visible: bar.wifiNetworks.length === 0; text:"Ağ taranıyor..."; color: bar.clrMuted; font.pixelSize:11; font.family:"Noto Sans" }
         }
-    }
-
-    function connectWithPass() {
-        bar.wifiConnectPass = bar.wifiPassInput
-        wifiConnectCmd.running = false
-        wifiConnTimer.start()
     }
 }

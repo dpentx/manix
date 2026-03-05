@@ -5,10 +5,27 @@ import Quickshell.Io
 ShellRoot {
     id: root
 
-    property bool launcherVisible: false
-    property int  lastMtime: 0
+    property bool   launcherVisible: false
+    property int    lastMtime:       0
+    property string pendingLaunch:   ""
 
-    // Her ekran için üst bar
+    // ── Uygulama başlatıcı — Loader dışında, kalıcı ───────────────────────
+    Process {
+        id: appLauncher
+        command: ["sh", "-c", root.pendingLaunch.length > 0 ? root.pendingLaunch : "true"]
+    }
+
+    function launchApp(exec, terminal) {
+        root.pendingLaunch = terminal
+            ? "nohup kitty -- " + exec + " >/dev/null 2>&1 &"
+            : "nohup " + exec + " >/dev/null 2>&1 &"
+        appLauncher.running = false
+        launchTimer.start()
+    }
+
+    Timer { id: launchTimer; interval: 80; repeat: false; onTriggered: appLauncher.running = true }
+
+    // ── Ekran başına TopBar ───────────────────────────────────────────────
     Variants {
         model: Quickshell.screens
         TopBar {
@@ -17,7 +34,12 @@ ShellRoot {
         }
     }
 
-    // Launcher — sadece açıkken yükle, kapanınca bellekten sil
+    // ── Wallhaven wrapper ─────────────────────────────────────────────────
+    Wallhaven {
+        screen: Quickshell.screens[0]
+    }
+
+    // ── Launcher Loader ───────────────────────────────────────────────────
     Loader {
         id: launcherLoader
         active: root.launcherVisible
@@ -25,16 +47,18 @@ ShellRoot {
             LauncherOverlay {
                 screen: Quickshell.screens[0]
                 visible: true
-                onCloseRequested: root.launcherVisible = false
+                onCloseRequested:           root.launcherVisible = false
+                onLaunchRequested: (e, t) => {
+                    root.launcherVisible = false
+                    root.launchApp(e, t)
+                }
             }
         }
     }
 
-    // Toggle: /tmp/qs-toggle dosyasının mtime'ını 200ms'de bir kontrol et
+    // ── Toggle: mtime polling ─────────────────────────────────────────────
     Timer {
-        interval: 200
-        running: true
-        repeat: true
+        interval: 200; running: true; repeat: true
         onTriggered: mtimePoller.running = true
     }
 
@@ -45,16 +69,14 @@ ShellRoot {
             onStreamFinished: {
                 const t = parseInt(text.trim())
                 if (t !== 0 && t !== root.lastMtime) {
-                    if (root.lastMtime !== 0) {
+                    if (root.lastMtime !== 0)
                         root.launcherVisible = !root.launcherVisible
-                    }
                     root.lastMtime = t
                 }
             }
         }
     }
 
-    // Başlangıçta dosyayı oluştur
     Process {
         command: ["sh", "-c", "touch /tmp/qs-toggle"]
         running: true
