@@ -765,7 +765,7 @@ PanelWindow {
     // ── Wallhaven paneli ──────────────────────────────────────────────────
     Rectangle {
         id: wallPanel
-        anchors { top: barBg.bottom; left: parent.left; right: parent.right }
+        anchors { top: barBg.bottom; left: parent.left }
         height: bar.wallPanelHeight
         color:  bar.clrPanel
         visible: bar.wallPanelOpen

@@ -15,12 +15,15 @@ PanelWindow {
     focusable: true
     color: "transparent"
 
-    readonly property color clrBase:    "#CC2D353B"
-    readonly property color clrSurface: "#303D484D"
-    readonly property color clrText:    "#D3C6AA"
-    readonly property color clrSubtext: "#9DA9A0"
-    readonly property color clrMuted:   "#7A8478"
-    readonly property color clrAccent:  "#E69875"
+    readonly property color clrBase:      "#EE1C2128"
+    readonly property color clrCard:      "#18252B"
+    readonly property color clrSurface:   "#232E34"
+    readonly property color clrSurface2:  "#2A3840"
+    readonly property color clrText:      "#D3C6AA"
+    readonly property color clrSubtext:   "#9DA9A0"
+    readonly property color clrMuted:     "#4A5650"
+    readonly property color clrAccent:    "#E69875"
+    readonly property color clrHighlight: "#28E69875"
 
     property string searchQuery: ""
     property var    appList:     []
@@ -71,129 +74,234 @@ PanelWindow {
         ? appList
         : appList.filter(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
+    onFilteredAppsChanged: appGrid.currentIndex = 0
+
+    // ── Karartma backdrop ─────────────────────────────────────────────────
     Rectangle {
         anchors.fill: parent
-        color: "#882D353B"
+        color: "#CC000000"
 
         MouseArea {
             anchors.fill: parent
             onClicked: overlay.closeRequested()
         }
 
+        // ── Merkezi panel ─────────────────────────────────────────────────
         Rectangle {
-            id: drawer
-            anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-            height: parent.height * 0.88
-            color: overlay.clrBase
-            radius: 28
+            id: panel
 
-            Rectangle {
-                anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-                height: parent.radius; color: parent.color
+            anchors.centerIn: parent
+            width:  Math.min(parent.width  * 0.72, 560)
+            height: Math.min(parent.height * 0.78, 680)
+
+            radius: 24
+            color:  overlay.clrCard
+
+            // Giriş animasyonu
+            opacity: 0
+            scale:   0.92
+            Component.onCompleted: entryAnim.start()
+
+            ParallelAnimation {
+                id: entryAnim
+                NumberAnimation { target: panel; property: "opacity"; to: 1; duration: 220; easing.type: Easing.OutCubic }
+                NumberAnimation { target: panel; property: "scale";   to: 1; duration: 220; easing.type: Easing.OutCubic }
             }
 
-            transform: Translate {
-                id: drawerTranslate
-                y: drawer.height
-                Behavior on y { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
-            }
-            Component.onCompleted: drawerTranslate.y = 0
+            // Panel tıklamalarını backdrop'a geçirme
+            MouseArea { anchors.fill: parent; onClicked: {} }
 
             ColumnLayout {
-                anchors { fill: parent; topMargin: 12; bottomMargin: 24; leftMargin: 24; rightMargin: 24 }
+                anchors { fill: parent; margins: 20 }
                 spacing: 14
 
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    width: 40; height: 4; radius: 2; color: "#507A8478"
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true; spacing: 12
+                // ── Başlık + arama ────────────────────────────────────────
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
 
                     Text {
-                        text: "Uygulamalar"; color: overlay.clrText
-                        font.pixelSize: 18; font.bold: true; font.family: "Noto Sans"
+                        text: "Uygulamalar"
+                        color: overlay.clrText
+                        font.pixelSize: 17
+                        font.bold: true
+                        font.family: "Noto Sans"
                     }
-                    Item { Layout.fillWidth: true }
+
+                    // Arama kutusu — OneUI Finder tarzı
                     Rectangle {
-                        width: 200; height: 36; radius: 18; color: overlay.clrSurface
+                        Layout.fillWidth: true
+                        height: 44
+                        radius: 22
+                        color:  overlay.clrSurface
+
                         RowLayout {
-                            anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
-                            spacing: 8
-                            Text { text: "🔍"; font.pixelSize: 13 }
+                            anchors { fill: parent; leftMargin: 16; rightMargin: 14 }
+                            spacing: 10
+
+                            Text {
+                                text: "\uf002"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 14
+                                color: overlay.clrSubtext
+                            }
+
                             TextInput {
                                 id: searchField
                                 Layout.fillWidth: true
-                                color: overlay.clrText; font.pixelSize: 13; font.family: "Noto Sans"
+                                color: overlay.clrText
+                                font.pixelSize: 14
+                                font.family: "Noto Sans"
                                 onTextChanged: overlay.searchQuery = text
+
+                                Keys.onTabPressed:    { appGrid.forceActiveFocus() }
+                                Keys.onDownPressed:   { appGrid.forceActiveFocus() }
+                                Keys.onEscapePressed: overlay.closeRequested()
+
                                 Text {
-                                    anchors.fill: parent; text: "Ara..."
-                                    color: overlay.clrMuted; font: parent.font
+                                    anchors.fill: parent
+                                    text: "Uygulama ara..."
+                                    color: overlay.clrMuted
+                                    font: parent.font
                                     visible: parent.text.length === 0
                                     verticalAlignment: Text.AlignVCenter
                                 }
                             }
-                            Text {
-                                text: "✕"; color: overlay.clrMuted; font.pixelSize: 12
+
+                            Rectangle {
+                                width: 22; height: 22; radius: 11
+                                color: overlay.clrSurface2
                                 visible: searchField.text.length > 0
-                                MouseArea { anchors.fill: parent; onClicked: searchField.text = "" }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "✕"
+                                    color: overlay.clrSubtext
+                                    font.pixelSize: 10
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: searchField.text = ""
+                                }
                             }
                         }
                     }
                 }
 
+                // ── Uygulama grid ─────────────────────────────────────────
                 ScrollView {
-                    Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ScrollBar.vertical.policy:   ScrollBar.AsNeeded
 
                     GridView {
                         id: appGrid
                         width: parent.width
-                        cellWidth:  Math.floor(width / 5)
-                        cellHeight: 96
+
+                        readonly property int cols: 4
+                        cellWidth:  Math.floor(width / cols)
+                        cellHeight: cellWidth * 1.22
+
                         model: overlay.filteredApps
+
+                        keyNavigationEnabled: true
+                        keyNavigationWraps:   false
+
+                        highlight: Item {
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width:  appGrid.cellWidth  - 12
+                                height: appGrid.cellHeight - 10
+                                radius: 18
+                                color:  overlay.clrHighlight
+                                border.color: overlay.clrAccent
+                                border.width: 1
+                            }
+                        }
+                        highlightFollowsCurrentItem: true
+                        highlightMoveDuration: 100
+
+                        Keys.onReturnPressed: {
+                            if (currentIndex >= 0 && currentIndex < filteredApps.length) {
+                                const app = filteredApps[currentIndex]
+                                overlay.launchRequested(app.exec, app.terminal)
+                            }
+                        }
+                        Keys.onTabPressed: {
+                            currentIndex = -1
+                            searchField.forceActiveFocus()
+                        }
+                        Keys.onUpPressed: {
+                            if (currentIndex < appGrid.cols) {
+                                currentIndex = -1
+                                searchField.forceActiveFocus()
+                            } else {
+                                moveCurrentIndexUp()
+                            }
+                        }
+                        Keys.onEscapePressed: overlay.closeRequested()
 
                         delegate: Item {
                             id: appItem
-                            width: appGrid.cellWidth; height: appGrid.cellHeight
+                            width:  appGrid.cellWidth
+                            height: appGrid.cellHeight
                             required property var modelData
+                            required property int index
 
                             Column {
-                                anchors.centerIn: parent; spacing: 7
+                                anchors.centerIn: parent
+                                spacing: 8
 
                                 Rectangle {
-                                    id: iconCard
-                                    width: 52; height: 52; radius: 14
+                                    id: iconBg
+                                    width:  appGrid.cellWidth * 0.62
+                                    height: width
+                                    radius: width * 0.28
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    color: "#303D484D"
+                                    color: overlay.clrSurface
 
                                     Image {
                                         id: iconImg
-                                        anchors.centerIn: parent; width: 32; height: 32
+                                        anchors.centerIn: parent
+                                        width:  parent.width  * 0.62
+                                        height: parent.height * 0.62
                                         source: appItem.modelData.icon !== ""
                                             ? "image://icon/" + appItem.modelData.icon : ""
                                         fillMode: Image.PreserveAspectFit
+                                        smooth: true
                                         onStatusChanged: if (status === Image.Error) visible = false
                                     }
+
                                     Text {
                                         anchors.centerIn: parent
                                         text: appItem.modelData.name.charAt(0).toUpperCase()
-                                        color: overlay.clrAccent; font.pixelSize: 18; font.bold: true
+                                        color: overlay.clrAccent
+                                        font.pixelSize: iconBg.width * 0.38
+                                        font.bold: true
                                         visible: iconImg.status !== Image.Ready
                                     }
+
                                     Rectangle {
-                                        id: pressOvr; anchors.fill: parent; radius: parent.radius
-                                        color: "white"; opacity: 0
+                                        id: pressOverlay
+                                        anchors.fill: parent
+                                        radius: parent.radius
+                                        color: "white"
+                                        opacity: 0
                                         Behavior on opacity { NumberAnimation { duration: 80 } }
                                     }
+
                                     scale: 1.0
-                                    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
+                                    Behavior on scale {
+                                        NumberAnimation { duration: 110; easing.type: Easing.OutBack }
+                                    }
 
                                     MouseArea {
-                                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                        onPressed:  { pressOvr.opacity = 0.18; iconCard.scale = 0.88 }
-                                        onReleased: { pressOvr.opacity = 0;    iconCard.scale = 1.0  }
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onPressed:  { pressOverlay.opacity = 0.15; iconBg.scale = 0.86 }
+                                        onReleased: { pressOverlay.opacity = 0;    iconBg.scale = 1.0  }
                                         onClicked: {
                                             overlay.launchRequested(
                                                 appItem.modelData.exec,
@@ -204,16 +312,29 @@ PanelWindow {
                                 }
 
                                 Text {
-                                    width: appGrid.cellWidth - 8
+                                    width: appGrid.cellWidth - 10
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: appItem.modelData.name; color: overlay.clrText
-                                    font.pixelSize: 10; font.family: "Noto Sans"
+                                    text: appItem.modelData.name
+                                    color: overlay.clrText
+                                    font.pixelSize: 11
+                                    font.family: "Noto Sans"
                                     horizontalAlignment: Text.AlignHCenter
-                                    elide: Text.ElideRight; maximumLineCount: 1
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 2
+                                    wrapMode: Text.WordWrap
                                 }
                             }
                         }
                     }
+                }
+
+                Text {
+                    visible: overlay.filteredApps.length === 0
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "Uygulama bulunamadı"
+                    color: overlay.clrMuted
+                    font.pixelSize: 13
+                    font.family: "Noto Sans"
                 }
             }
         }
@@ -221,9 +342,10 @@ PanelWindow {
 
     onVisibleChanged: {
         if (visible) {
-            searchField.text = ""
+            searchField.text     = ""
+            appGrid.currentIndex = 0
             searchField.forceActiveFocus()
-            appScanner.running = true
+            appScanner.running   = true
         }
     }
 }

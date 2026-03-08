@@ -89,6 +89,7 @@
     playerctl
     pamixer
     swaybg
+    tmux
     curl
   ];
 
