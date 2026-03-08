@@ -34,11 +34,6 @@ ShellRoot {
         }
     }
 
-    // ── Wallhaven wrapper ─────────────────────────────────────────────────
-    Wallhaven {
-        screen: Quickshell.screens[0]
-    }
-
     // ── Launcher Loader ───────────────────────────────────────────────────
     Loader {
         id: launcherLoader
