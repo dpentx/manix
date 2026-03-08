@@ -60,7 +60,7 @@ PanelWindow {
     property int  volume: 50
     property bool muted:  false
     property bool volPopupOpen:  false
-    property bool wallPanelOpen:  false
+    property bool wallPanelOpen: false
 
     // ── Process'ler ───────────────────────────────────────────────────────
     Process {
@@ -176,7 +176,7 @@ PanelWindow {
         command: ["sh", "-c", bar.wifiConnShCmd]
         onRunningChanged: if (!running) { wifiPoller.running = true; bar.wifiPassInput = ""; bar.wifiPassExpandedSsid = "" }
     }
-    Timer { id: wifiConnTimer; interval: 60; repeat: false; onTriggered: wifiConnectCmd.running = true }
+    Timer { id: wifiConnTimer;   interval: 60;  repeat: false; onTriggered: wifiConnectCmd.running = true }
     Timer { id: inlinePassTimer; interval: 200; repeat: false; onTriggered: {} }
 
     Process {
@@ -191,9 +191,9 @@ PanelWindow {
             }
         }
     }
-    Process { id: volMuteCmd; command: ["pamixer","--toggle-mute"];   onRunningChanged: if (!running) volPoller.running = true }
-    Process { id: volUpCmd;   command: ["pamixer","--increase","5"];  onRunningChanged: if (!running) volPoller.running = true }
-    Process { id: volDownCmd; command: ["pamixer","--decrease","5"];  onRunningChanged: if (!running) volPoller.running = true }
+    Process { id: volMuteCmd; command: ["pamixer","--toggle-mute"];  onRunningChanged: if (!running) volPoller.running = true }
+    Process { id: volUpCmd;   command: ["pamixer","--increase","5"]; onRunningChanged: if (!running) volPoller.running = true }
+    Process { id: volDownCmd; command: ["pamixer","--decrease","5"]; onRunningChanged: if (!running) volPoller.running = true }
 
     property int volSetTarget: 50
     Process {
@@ -212,7 +212,7 @@ PanelWindow {
     property string wallSorting: "toplist"
     property bool   wallLoading: false
     property var    wallResults: []
-    property string wallApiKey:  ""   // opsiyonel
+    property string wallApiKey:  ""
 
     Process {
         id: wallFetcher
@@ -243,28 +243,122 @@ PanelWindow {
         wallFetchTimer.start()
     }
 
-    property string wallApplyTarget: ""
-    readonly property string wallApplyCmd:
-        "curl -sL '" + bar.wallApplyTarget + "' -o /tmp/qs-wall.jpg && " +
-        "pkill swaybg; swaybg -m fill -i /tmp/qs-wall.jpg &"
+    // ── Wallpaper indirme durumu ──────────────────────────────────────────
+    property string wallApplyTarget:  ""
+    property bool   wallDownloading:  false
+    property real   wallDlProgress:   0.0      // 0.0 – 1.0
+    property int    wallDlExpected:   0        // beklenen bayt
+    property string wallDlLabel:      ""       // "1.2 / 3.4 MB"
+
+    // 1) Dosya boyutunu HEAD ile al
     Process {
-        id: wallApplyProc
-        command: ["sh", "-c", bar.wallApplyCmd]
+        id: wallSizeProc
+        property string targetUrl: ""
+        command: ["sh", "-c",
+            "curl -sI --user-agent 'Mozilla/5.0' '" + wallSizeProc.targetUrl + "' " +
+            "2>/dev/null | grep -i content-length | tail -1 | awk '{print $2}' | tr -d '\\r'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                bar.wallDlExpected = parseInt(text.trim()) || 0
+                // Boyut alındı — indirmeyi başlat
+                wallDlProc.dlUrl = bar.wallApplyTarget
+                wallDlProc.running = false
+                wallDlStartTimer.start()
+            }
+        }
     }
-    Timer { id: wallApplyTimer; interval: 50; repeat: false; onTriggered: wallApplyProc.running = true }
-    function wallApply(url) {
-        bar.wallApplyTarget = url
-        wallApplyProc.running = false
-        wallApplyTimer.start()
+    Timer { id: wallDlStartTimer; interval: 60; repeat: false; onTriggered: wallDlProc.running = true }
+
+    // 2) Arka planda indir
+    Process {
+        id: wallDlProc
+        property string dlUrl: ""
+        command: ["sh", "-c",
+            "rm -f /tmp/qs-wall.jpg; " +
+            "curl -L --max-time 60 --user-agent 'Mozilla/5.0' " +
+            "'" + wallDlProc.dlUrl + "' " +
+            "-o /tmp/qs-wall.jpg 2>/tmp/qs-wall-err.txt; " +
+            "echo DONE > /tmp/qs-wall-done"]
+        onRunningChanged: {
+            if (running) {
+                bar.wallDlProgress = 0
+                wallDlPollTimer.start()
+            } else {
+                wallDlPollTimer.stop()
+                bar.wallDownloading  = false
+                bar.wallDlProgress   = 1.0
+                bar.wallDlLabel      = "Uygulanıyor..."
+                swaybgRestarter.running = true
+            }
+        }
+    }
+
+    // 3) Dosya boyutunu poll'la → progress hesapla
+    Process {
+        id: wallSizePoller
+        command: ["sh", "-c", "stat -c %s /tmp/qs-wall.jpg 2>/dev/null || echo 0"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const downloaded = parseInt(text.trim()) || 0
+                if (bar.wallDlExpected > 0) {
+                    bar.wallDlProgress = Math.min(downloaded / bar.wallDlExpected, 0.99)
+                } else {
+                    // Boyut bilinmiyorsa indikator olarak döngüsel artış
+                    bar.wallDlProgress = Math.min(bar.wallDlProgress + 0.04, 0.95)
+                }
+                // Etiket: "1.2 / 3.4 MB"
+                const dlMB  = (downloaded / 1048576).toFixed(1)
+                const totMB = bar.wallDlExpected > 0
+                    ? " / " + (bar.wallDlExpected / 1048576).toFixed(1) + " MB"
+                    : " MB"
+                bar.wallDlLabel = dlMB + totMB
+            }
+        }
     }
 
     Timer {
-        interval: 15000; running: true; repeat: true
+        id: wallDlPollTimer
+        interval: 400
+        repeat: true
+        running: false
+        onTriggered: wallSizePoller.running = true
+    }
+
+    // 4) İndirme tamamlanınca swaybg uygula
+    Process {
+        id: swaybgRestarter
+        command: ["sh", "-c",
+            "pkill -x swaybg 2>/dev/null; sleep 0.2; " +
+            "swaybg -o eDP-1 -m fill -i /tmp/qs-wall.jpg &"]
+        onRunningChanged: {
+            if (!running) {
+                bar.wallDlLabel    = ""
+                bar.wallDlProgress = 0
+            }
+        }
+    }
+
+    function wallApply(url) {
+        if (bar.wallDownloading) return   // çift tıklamayı önle
+        bar.wallApplyTarget = url
+        bar.wallDownloading = true
+        bar.wallDlProgress  = 0
+        bar.wallDlLabel     = "Boyut alınıyor..."
+        // Önce HEAD ile boyutu öğren
+        wallSizeProc.targetUrl = url
+        wallSizeProc.running   = false
+        wallSizeProc.running   = true
+    }
+
+    Timer {
+        interval: 15000
+        running: true
+        repeat: true
         onTriggered: { btPoller.running = true; wifiPoller.running = true; volPoller.running = true }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ── One UI Bar ─────────────────────────────────────────────────────────
+    // ── Bar ────────────────────────────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════════════════
     Rectangle {
         id: barBg
@@ -276,101 +370,23 @@ PanelWindow {
             anchors { fill: parent; leftMargin: 16; rightMargin: 16 }
             spacing: 0
 
-            // ── Sol: Saat + Tarih ─────────────────────────────────────────
-            Clock {
-                id: clock
-                Layout.alignment: Qt.AlignVCenter
-                textColor: bar.clrText
-                onClicked: {
-                    bar.mediaPanelOpen = !bar.mediaPanelOpen
-                    bar.btPanelOpen    = false
-                    bar.wifiPanelOpen  = false
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            // ── Orta: Workspace noktaları ─────────────────────────────────
-            Workspaces {
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
-                activeColor:   bar.clrAccent
-                inactiveColor: bar.clrMuted
-            }
-
-            Item { Layout.fillWidth: true }
-
-            // ── Sağ: İkonlar — One UI tarzı düz, minimal ─────────────────
+            // ── Sol: Saat + Tarih + Wallhaven butonu ──────────────────────
             Row {
                 Layout.alignment: Qt.AlignVCenter
-                spacing: 14
+                spacing: 12
 
-                // Volume ikon — tıkla popup aç, scroll ile değiştir
-                Text {
-                    id: volIcon
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.volPopupOpen   = !bar.volPopupOpen
-                            bar.btPanelOpen    = false
-                            bar.wifiPanelOpen  = false
-                            bar.mediaPanelOpen = false
-                        }
-                        onWheel: function(wheel) {
-                            if (wheel.angleDelta.y > 0) volUpCmd.running = true
-                            else volDownCmd.running = true
-                        }
+                Clock {
+                    id: clock
+                    textColor: bar.clrText
+                    onClicked: {
+                        bar.mediaPanelOpen = !bar.mediaPanelOpen
+                        bar.btPanelOpen    = false
+                        bar.wifiPanelOpen  = false
+                        bar.wallPanelOpen  = false
                     }
                 }
 
-                // BT ikon
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf293"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.btPowered
-                        ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
-                        : bar.clrMuted
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.btPanelOpen    = !bar.btPanelOpen
-                            bar.wifiPanelOpen  = false
-                            bar.mediaPanelOpen = false
-                            bar.volPopupOpen   = false
-                            if (bar.btPanelOpen) btPoller.running = true
-                        }
-                    }
-                }
-
-                // WiFi ikon
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf1eb"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.wifiPanelOpen  = !bar.wifiPanelOpen
-                            bar.btPanelOpen    = false
-                            bar.mediaPanelOpen = false
-                            bar.volPopupOpen   = false
-                            bar.wallPanelOpen  = false
-                            bar.wifiPassExpandedSsid = ""
-                            if (bar.wifiPanelOpen) wifiListPoller.running = true
-                        }
-                    }
-                }
-
-                // Wallpaper ikon
+                // ── Wallhaven ikonu — sol tarafta ─────────────────────────
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "\uf03e"
@@ -391,50 +407,126 @@ PanelWindow {
                     }
                 }
             }
+
+            Item { Layout.fillWidth: true }
+
+            // ── Orta: Workspace noktaları ─────────────────────────────────
+            Workspaces {
+                Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+                activeColor:   bar.clrAccent
+                inactiveColor: bar.clrMuted
+            }
+
+            Item { Layout.fillWidth: true }
+
+            // ── Sağ: Volume + BT + WiFi ───────────────────────────────────
+            Row {
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 14
+
+                // Volume
+                Text {
+                    id: volIcon
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.volPopupOpen   = !bar.volPopupOpen
+                            bar.btPanelOpen    = false
+                            bar.wifiPanelOpen  = false
+                            bar.mediaPanelOpen = false
+                            bar.wallPanelOpen  = false
+                        }
+                        onWheel: function(wheel) {
+                            if (wheel.angleDelta.y > 0) volUpCmd.running = true
+                            else volDownCmd.running = true
+                        }
+                    }
+                }
+
+                // Bluetooth
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf293"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.btPowered
+                        ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
+                        : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.btPanelOpen    = !bar.btPanelOpen
+                            bar.wifiPanelOpen  = false
+                            bar.mediaPanelOpen = false
+                            bar.volPopupOpen   = false
+                            bar.wallPanelOpen  = false
+                            if (bar.btPanelOpen) btPoller.running = true
+                        }
+                    }
+                }
+
+                // WiFi
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf1eb"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.wifiPanelOpen  = !bar.wifiPanelOpen
+                            bar.btPanelOpen    = false
+                            bar.mediaPanelOpen = false
+                            bar.volPopupOpen   = false
+                            bar.wallPanelOpen  = false
+                            bar.wifiPassExpandedSsid = ""
+                            if (bar.wifiPanelOpen) wifiListPoller.running = true
+                        }
+                    }
+                }
+            }
         }
     }
 
-    // ── Volume popup — One UI pill ──────────────────────────────────────
+    // ── Volume popup ──────────────────────────────────────────────────────
     Rectangle {
         id: volPopup
         visible: bar.volPopupOpen
-
         anchors.right:       barBg.right
         anchors.rightMargin: 16
         anchors.top:         barBg.bottom
         anchors.topMargin:   8
-
-        width:  56
+        width: 56
         height: 228
         radius: 28
-        color:  "#F0333C43"   // Everforest surface, koyu ve opak
+        color: "#F0333C43"
 
-        // ── Üç nokta ────────────────────────────────────────────────────
         Row {
-            anchors.top:              parent.top
+            anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin:        14
+            anchors.topMargin: 14
             spacing: 4
             Repeater {
                 model: 3
-                Rectangle {
-                    width: 4; height: 4; radius: 2
-                    color: bar.clrMuted
-                }
+                Rectangle { width: 4; height: 4; radius: 2; color: bar.clrMuted }
             }
         }
 
-        // ── Slider ──────────────────────────────────────────────────────
         Item {
             id: volSliderArea
-            anchors.top:              parent.top
-            anchors.bottom:           volMuteBtn.top
+            anchors.top: parent.top
+            anchors.bottom: volMuteBtn.top
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin:        38
-            anchors.bottomMargin:     8
+            anchors.topMargin: 38
+            anchors.bottomMargin: 8
             width: parent.width
 
-            // Track arka plan
             Rectangle {
                 id: volTrackBg
                 width: 6
@@ -443,26 +535,20 @@ PanelWindow {
                 color: bar.clrSurf
                 anchors.centerIn: parent
             }
-
-            // Doluluk — aşağıdan yukarı
             Rectangle {
-                width:  6
-                radius: 3
+                width: 6; radius: 3
                 height: volTrackBg.height * (bar.muted ? 0 : bar.volume / 100)
-                color:  bar.muted ? bar.clrRed : bar.clrGreen
-                anchors.bottom:           volTrackBg.bottom
+                color: bar.muted ? bar.clrRed : bar.clrGreen
+                anchors.bottom: volTrackBg.bottom
                 anchors.horizontalCenter: volTrackBg.horizontalCenter
                 Behavior on height { NumberAnimation { duration: 60 } }
             }
-
-            // Thumb knob
             Rectangle {
-                width:  32; height: 32; radius: 16
-                color:  bar.muted ? bar.clrRed : bar.clrAccent
+                width: 32; height: 32; radius: 16
+                color: bar.muted ? bar.clrRed : bar.clrAccent
                 anchors.horizontalCenter: volTrackBg.horizontalCenter
                 y: volTrackBg.y + volTrackBg.height * (1 - (bar.muted ? 0 : bar.volume / 100)) - height / 2
                 Behavior on y { NumberAnimation { duration: 60 } }
-
                 Text {
                     anchors.centerIn: parent
                     text: bar.muted ? "M" : bar.volume
@@ -472,69 +558,48 @@ PanelWindow {
                     font.family: "Noto Sans"
                 }
             }
-
-            // Tıklama + sürükleme
             MouseArea {
                 anchors.fill: volTrackBg
-                anchors.margins: -16   // kolay tıklamak için geniş alan
+                anchors.margins: -16
                 cursorShape: Qt.SizeVerCursor
                 preventStealing: true
-
-                onPressed:        setVol(mouseY)
+                onPressed:         setVol(mouseY)
                 onPositionChanged: setVol(mouseY)
                 onWheel: function(wheel) {
                     if (wheel.angleDelta.y > 0) volUpCmd.running = true
                     else volDownCmd.running = true
                 }
-
                 function setVol(my) {
-                    const h   = volTrackBg.height
-                    const pct = Math.max(0, Math.min(100,
-                        Math.round((1 - my / h) * 100)
-                    ))
-                    bar.volSetTarget = pct
-                    volSetCmd.running = false
-                    volSetTimer.start()
+                    const pct = Math.max(0, Math.min(100, Math.round((1 - my / volTrackBg.height) * 100)))
+                    bar.volSetTarget = pct; volSetCmd.running = false; volSetTimer.start()
                 }
             }
         }
 
-        // ── Alt ikon: müzik notu / mute toggle ──────────────────────────
         Rectangle {
             id: volMuteBtn
-            width:  40; height: 40; radius: 20
-            color:  bar.muted
-                        ? Qt.rgba(0.90, 0.49, 0.50, 0.30)
-                        : Qt.rgba(1, 1, 1, 0.08)
-            anchors.bottom:           parent.bottom
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottomMargin:     8
-
+            width: 40; height: 40; radius: 20
+            color: bar.muted ? Qt.rgba(0.90,0.49,0.50,0.30) : Qt.rgba(1,1,1,0.08)
+            anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottomMargin: 8
             Text {
-                anchors.centerIn: parent
-                text: bar.muted ? "\uf026" : "\uf025"
-                font.family:   "JetBrainsMono Nerd Font"
-                font.pixelSize: 15
+                anchors.centerIn: parent; text: bar.muted ? "\uf026" : "\uf025"
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
                 color: bar.muted ? bar.clrRed : bar.clrSub
             }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape:  Qt.PointingHandCursor
-                onClicked:    volMuteCmd.running = true
-            }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: volMuteCmd.running = true }
         }
     }
 
-        // ── Medya paneli ──────────────────────────────────────────────────────
+    // ── Medya paneli ──────────────────────────────────────────────────────
     Rectangle {
         anchors { top: barBg.bottom; left: parent.left }
         width: 290
         height: clock.hasMedia ? 96 : 40
-        radius: 12; color: bar.clrPanel
+        radius: 12
+        color: bar.clrPanel
         visible: bar.mediaPanelOpen
         Behavior on height { NumberAnimation { duration: 180 } }
-
         Rectangle {
             anchors { top: parent.top; left: parent.left }
             width: parent.radius
@@ -545,28 +610,13 @@ PanelWindow {
         Column {
             anchors { fill: parent; margins: 14 }
             spacing: 6
-
-            Text {
-                visible: !clock.hasMedia
-                text: "Oynatıcı yok"; color: bar.clrMuted
-                font.pixelSize: 11; font.family: "Noto Sans"
-            }
-
-            Text {
-                visible: clock.hasMedia
-                text: clock.mediaTitle; color: bar.clrText
-                font.pixelSize: 13; font.bold: true; font.family: "Noto Sans"
-                elide: Text.ElideRight; width: parent.width
-            }
-            Text {
-                visible: clock.hasMedia
-                text: clock.mediaArtist; color: bar.clrSub
-                font.pixelSize: 11; font.family: "Noto Sans"
-                elide: Text.ElideRight; width: parent.width
-            }
+            Text { visible: !clock.hasMedia; text: "Oynatıcı yok"; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
+            Text { visible: clock.hasMedia; text: clock.mediaTitle; color: bar.clrText; font.pixelSize: 13; font.bold: true; font.family: "Noto Sans"; elide: Text.ElideRight; width: parent.width }
+            Text { visible: clock.hasMedia; text: clock.mediaArtist; color: bar.clrSub; font.pixelSize: 11; font.family: "Noto Sans"; elide: Text.ElideRight; width: parent.width }
             Row {
                 visible: clock.hasMedia
-                spacing: 8; anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 8
+                anchors.horizontalCenter: parent.horizontalCenter
                 Repeater {
                     model: [{ icon: "\uf049", act:0 }, { icon: clock.mediaPlaying ? "\uf04c" : "\uf04b", act:1 }, { icon: "\uf050", act:2 }]
                     Rectangle {
@@ -591,10 +641,11 @@ PanelWindow {
     // ── BT paneli ─────────────────────────────────────────────────────────
     Rectangle {
         anchors { top: barBg.bottom; right: parent.right }
-        width: 250; height: btPanelCol.implicitHeight + 24
-        radius: 12; color: bar.clrPanel
+        width: 250
+        height: btPanelCol.implicitHeight + 24
+        radius: 12
+        color: bar.clrPanel
         visible: bar.btPanelOpen
-
         Rectangle {
             anchors { top: parent.top; right: parent.right }
             width: parent.radius
@@ -623,12 +674,13 @@ PanelWindow {
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: btToggleCmd.running = true }
                 }
             }
-
             Repeater {
                 model: bar.btAllDevices
                 Rectangle {
                     required property var modelData
-                    width: btPanelCol.width; height: 36; radius: 8
+                    width: btPanelCol.width
+                    height: 36
+                    radius: 8
                     color: modelData.connected ? Qt.rgba(0.46,0.73,0.70,0.12) : bar.clrSurf
                     Row {
                         anchors { fill: parent; leftMargin: 10; rightMargin: 8 }
@@ -641,20 +693,20 @@ PanelWindow {
                             color: modelData.connected ? Qt.rgba(0.90,0.49,0.50,0.20) : Qt.rgba(0.65,0.75,0.50,0.18)
                             anchors.verticalCenter: parent.verticalCenter
                             Text { anchors.centerIn: parent; text: modelData.connected ? "\uf127" : "\uf293"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:11; color: modelData.connected ? bar.clrRed : bar.clrGreen }
-                            MouseArea {
-                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                onClicked: btAction(modelData.connected ? "bluetoothctl disconnect " + modelData.mac : "bluetoothctl connect " + modelData.mac)
-                            }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: btAction(modelData.connected ? "bluetoothctl disconnect " + modelData.mac : "bluetoothctl connect " + modelData.mac) }
                         }
                         Rectangle {
-                            width:26; height:26; radius:6; color: Qt.rgba(0.90,0.49,0.50,0.12); anchors.verticalCenter: parent.verticalCenter
+                            width:26
+                            height:26
+                            radius:6
+                            color: Qt.rgba(0.90,0.49,0.50,0.12)
+                            anchors.verticalCenter: parent.verticalCenter
                             Text { anchors.centerIn: parent; text: "\uf1f8"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:11; color: bar.clrRed }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: btAction("bluetoothctl remove " + modelData.mac) }
                         }
                     }
                 }
             }
-
             Text { visible: bar.btAllDevices.length === 0 && bar.btPowered;  text: "Eşleşmiş cihaz yok"; color: bar.clrMuted; font.pixelSize:11; font.family:"Noto Sans" }
             Text { visible: !bar.btPowered; text: "Bluetooth kapalı"; color: bar.clrMuted; font.pixelSize:11; font.family:"Noto Sans" }
         }
@@ -663,10 +715,11 @@ PanelWindow {
     // ── WiFi paneli ───────────────────────────────────────────────────────
     Rectangle {
         anchors { top: barBg.bottom; right: parent.right }
-        width: 260; height: wifiPanelCol.implicitHeight + 24
-        radius: 12; color: bar.clrPanel
+        width: 260
+        height: wifiPanelCol.implicitHeight + 24
+        radius: 12
+        color: bar.clrPanel
         visible: bar.wifiPanelOpen
-
         Rectangle {
             anchors { top: parent.top; right: parent.right }
             width: parent.radius
@@ -695,21 +748,23 @@ PanelWindow {
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: wifiToggleCmd.running = true }
                 }
             }
-
             Repeater {
                 model: bar.wifiNetworks
                 Column {
                     required property var modelData
-                    width: wifiPanelCol.width; spacing: 4
+                    width: wifiPanelCol.width
+                    spacing: 4
 
                     Rectangle {
-                        width: parent.width; height: 34; radius: 8
+                        width: parent.width
+                        height: 34
+                        radius: 8
                         color: modelData.active ? Qt.rgba(0.65,0.75,0.50,0.18)
                              : bar.wifiPassExpandedSsid === modelData.ssid ? Qt.rgba(0.46,0.73,0.70,0.12)
                              : Qt.rgba(1,1,1,0.04)
                         Row {
                             anchors { fill: parent; leftMargin:10; rightMargin:10 }
-                            spacing:6
+                            spacing: 6
                             Text { text:"\uf1eb"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:12; color: modelData.active ? bar.clrGreen : modelData.signal > 60 ? bar.clrSub : bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
                             Text { text: modelData.ssid; color: modelData.active ? bar.clrGreen : bar.clrText; font.pixelSize:11; font.family:"Noto Sans"; font.bold: modelData.active; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight; width: parent.width - 18 - 6 - 16 - 6 - 28 - 10 }
                             Item { width:1 }
@@ -731,25 +786,36 @@ PanelWindow {
                             }
                         }
                     }
-
                     Rectangle {
                         width: parent.width
                         height: bar.wifiPassExpandedSsid === modelData.ssid ? 38 : 0
-                        visible: height > 2; radius:8; color: bar.clrSurf2; clip:true
+                        visible: height > 2
+                        radius: 8
+                        color: bar.clrSurf2
+                        clip: true
                         Behavior on height { NumberAnimation { duration:180; easing.type: Easing.OutCubic } }
                         Row {
                             anchors { fill:parent; leftMargin:10; rightMargin:10 }
-                            spacing:8; visible: parent.height > 10
+                            spacing: 8
+                            visible: parent.height > 10
                             Text { text:"\uf023"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:12; color: bar.clrSub; anchors.verticalCenter: parent.verticalCenter }
                             TextInput {
-                                width: parent.width - 62; color: bar.clrText; font.pixelSize:12; font.family:"Noto Sans"
-                                echoMode: TextInput.Password; anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 62
+                                color: bar.clrText
+                                font.pixelSize: 12
+                                font.family: "Noto Sans"
+                                echoMode: TextInput.Password
+                                anchors.verticalCenter: parent.verticalCenter
                                 onTextChanged: bar.wifiPassInput = text
                                 Keys.onReturnPressed: { bar.wifiConnectPass = bar.wifiPassInput; wifiConnTimer.start() }
                                 Text { anchors.fill:parent; text:"Şifre girin..."; color: bar.clrMuted; font:parent.font; visible: parent.text.length === 0; verticalAlignment: Text.AlignVCenter }
                             }
                             Rectangle {
-                                width:26; height:26; radius:6; color: Qt.rgba(0.65,0.75,0.50,0.20); anchors.verticalCenter: parent.verticalCenter
+                                width: 26
+                                height: 26
+                                radius: 6
+                                color: Qt.rgba(0.65,0.75,0.50,0.20)
+                                anchors.verticalCenter: parent.verticalCenter
                                 Text { anchors.centerIn:parent; text:"\uf00c"; font.family:"JetBrainsMono Nerd Font"; font.pixelSize:11; color: bar.clrGreen }
                                 MouseArea { anchors.fill:parent; cursorShape: Qt.PointingHandCursor; onClicked: { bar.wifiConnectPass = bar.wifiPassInput; wifiConnTimer.start() } }
                             }
@@ -757,19 +823,27 @@ PanelWindow {
                     }
                 }
             }
-
             Text { visible: bar.wifiNetworks.length === 0; text:"Ağ taranıyor..."; color: bar.clrMuted; font.pixelSize:11; font.family:"Noto Sans" }
         }
     }
 
-    // ── Wallhaven paneli ──────────────────────────────────────────────────
+    // ── Wallhaven paneli — sol tarafta, sabit genişlik ────────────────────
     Rectangle {
         id: wallPanel
         anchors { top: barBg.bottom; left: parent.left }
+        width: 460                           // ← EKSİK OLAN BUYDU
         height: bar.wallPanelHeight
         color:  bar.clrPanel
         visible: bar.wallPanelOpen
         clip: true
+
+        // Sol üst köşe düzeltme (radius görünümü için)
+        Rectangle {
+            anchors { top: parent.top; left: parent.left }
+            width: parent.radius
+            height: parent.radius
+            color: parent.color
+        }
 
         Column {
             id: wallPanelCol
@@ -778,63 +852,47 @@ PanelWindow {
 
             // Arama satırı
             Row {
-                width: parent.width
-                spacing: 6
+                width: parent.width; spacing: 6
 
                 Rectangle {
-                    width: parent.width - 28*3 - 28 - 6*4; height: 28; radius: 14
+                    width: parent.width - 28*3 - 28 - 6*4
+                    height: 28
+                    radius: 14
                     color: bar.clrSurf
                     Row {
                         anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                         spacing: 6
-                        Text {
-                            text: "\uf002"
-                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10
-                            color: bar.clrMuted; anchors.verticalCenter: parent.verticalCenter
-                        }
+                        Text { text: "\uf002"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
                         TextInput {
                             id: wallQueryField
                             width: parent.width - 20
-                            color: bar.clrText; font.pixelSize: 11; font.family: "Noto Sans"
+                            color: bar.clrText
+                            font.pixelSize: 11
+                            font.family: "Noto Sans"
                             text: bar.wallQuery
                             onTextChanged: bar.wallQuery = text
                             Keys.onReturnPressed: bar.wallSearch()
                             anchors.verticalCenter: parent.verticalCenter
-                            Text {
-                                anchors.fill: parent; text: "Wallpaper ara..."
-                                color: bar.clrMuted; font: parent.font
-                                visible: parent.text.length === 0
-                                verticalAlignment: Text.AlignVCenter
-                            }
+                            Text { anchors.fill: parent; text: "Wallpaper ara..."; color: bar.clrMuted; font: parent.font; visible: parent.text.length === 0; verticalAlignment: Text.AlignVCenter }
                         }
                     }
                 }
 
-                // Sıralama butonları
                 Repeater {
                     model: [
-                        { icon: "\uf005", val: "toplist",   tip: "Top" },
-                        { icon: "\uf017", val: "date_added", tip: "Yeni" },
-                        { icon: "\uf06e", val: "views",     tip: "Çok izlenen" }
+                        { icon: "\uf005", val: "toplist" },
+                        { icon: "\uf017", val: "date_added" },
+                        { icon: "\uf06e", val: "views" }
                     ]
                     Rectangle {
                         required property var modelData
                         width: 28; height: 28; radius: 8
-                        color: bar.wallSorting === modelData.val
-                               ? Qt.rgba(0.90,0.60,0.46,0.25) : bar.clrSurf
-                        Text {
-                            anchors.centerIn: parent; text: modelData.icon
-                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12
-                            color: bar.wallSorting === modelData.val ? bar.clrAccent : bar.clrMuted
-                        }
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: { bar.wallSorting = modelData.val; bar.wallSearch() }
-                        }
+                        color: bar.wallSorting === modelData.val ? Qt.rgba(0.90,0.60,0.46,0.25) : bar.clrSurf
+                        Text { anchors.centerIn: parent; text: modelData.icon; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: bar.wallSorting === modelData.val ? bar.clrAccent : bar.clrMuted }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { bar.wallSorting = modelData.val; bar.wallSearch() } }
                     }
                 }
 
-                // Ara butonu
                 Rectangle {
                     width: 28; height: 28; radius: 8; color: bar.clrAccent
                     Text { anchors.centerIn: parent; text: "\uf002"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: "#2D353B" }
@@ -842,62 +900,105 @@ PanelWindow {
                 }
             }
 
-            // Loading / boş durum
-            Text {
-                visible: bar.wallLoading
-                text: "Yükleniyor..."; color: bar.clrMuted
-                font.pixelSize: 11; font.family: "Noto Sans"
-            }
-            Text {
-                visible: !bar.wallLoading && bar.wallResults.length === 0
-                text: "Arama yap veya Enter'a bas"
-                color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans"
+            Text { visible: bar.wallLoading; text: "Yükleniyor..."; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
+            Text { visible: !bar.wallLoading && bar.wallResults.length === 0; text: "Arama yap veya Enter'a bas"; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
+
+            // ── İndirme progress bar ──────────────────────────────────────
+            Rectangle {
+                visible: bar.wallDownloading
+                width: parent.width
+                height: 36
+                radius: 10
+                color: bar.clrSurf
+
+                // Progress dolgu
+                Rectangle {
+                    id: dlFill
+                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                    width: Math.max(parent.radius * 2, parent.width * bar.wallDlProgress)
+                    radius: parent.radius
+                    color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : bar.clrAccent
+                    Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                }
+
+                // Shimmer animasyonu — indirme sırasında
+                Rectangle {
+                    visible: bar.wallDlProgress > 0 && bar.wallDlProgress < 1.0
+                    anchors { top: parent.top; bottom: parent.bottom }
+                    width: 60
+                    x: dlFill.width - 30
+                    radius: parent.radius
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "transparent" }
+                        GradientStop { position: 0.5; color: Qt.rgba(1,1,1,0.12) }
+                        GradientStop { position: 1.0; color: "transparent" }
+                    }
+                    Behavior on x { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                }
+
+                RowLayout {
+                    anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+
+                    Text {
+                        text: bar.wallDlProgress >= 1.0 ? "\uf00c" : "\uf019"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 11
+                        color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : "#2D353B"
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: bar.wallDlProgress >= 1.0
+                            ? "Uygulandı"
+                            : (bar.wallDlLabel.length > 0 ? bar.wallDlLabel : "İndiriliyor...")
+                        color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : "#2D353B"
+                        font.pixelSize: 11
+                        font.family: "Noto Sans"
+                        font.bold: true
+                    }
+
+                    Text {
+                        visible: bar.wallDlProgress > 0 && bar.wallDlProgress < 1.0
+                        text: Math.round(bar.wallDlProgress * 100) + "%"
+                        color: "#2D353B"
+                        font.pixelSize: 11
+                        font.bold: true
+                        font.family: "Noto Sans"
+                    }
+                }
             }
 
-            // Thumbnail grid
             Grid {
                 visible: bar.wallResults.length > 0
-                width: parent.width
-                columns: 6
-                spacing: 6
+                width: parent.width; columns: 4; spacing: 6
 
                 Repeater {
                     model: bar.wallResults
-
                     Rectangle {
                         required property var modelData
-                        width:  Math.floor((wallPanelCol.width - 5*6) / 6)
+                        width:  Math.floor((wallPanelCol.width - 3*6) / 4)
                         height: width * 9 / 16
                         radius: 6; color: bar.clrSurf; clip: true
 
-                        Image {
-                            anchors.fill: parent
-                            source: modelData.thumb
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                        }
+                        Image { anchors.fill: parent; source: modelData.thumb; fillMode: Image.PreserveAspectCrop; asynchronous: true }
 
                         Rectangle {
-                            id: thumbOver
-                            anchors.fill: parent; radius: parent.radius
+                            id: thumbOver; anchors.fill: parent; radius: parent.radius
                             color: "#88000000"; opacity: 0
                             Behavior on opacity { NumberAnimation { duration: 100 } }
-                            Text {
-                                anchors.centerIn: parent; text: "\uf019"
-                                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18
-                                color: "white"
-                            }
+                            Text { anchors.centerIn: parent; text: "\uf019"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: "white" }
                         }
 
                         scale: 1.0
                         Behavior on scale { NumberAnimation { duration: 100 } }
 
                         MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            hoverEnabled: true
-                            onEntered:  { thumbOver.opacity = 1; parent.scale = 1.05 }
-                            onExited:   { thumbOver.opacity = 0; parent.scale = 1.0  }
-                            onClicked:  bar.wallApply(modelData.full)
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                            onEntered: { thumbOver.opacity = 1; parent.scale = 1.05 }
+                            onExited:  { thumbOver.opacity = 0; parent.scale = 1.0  }
+                            onClicked: bar.wallApply(modelData.full)
                         }
                     }
                 }
