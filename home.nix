@@ -123,6 +123,7 @@
     }
 
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
+    spawn-at-startup "swww-daemon"
 
     // ✅ noctalia-shell yerine quickshell
     spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"

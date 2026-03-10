@@ -88,7 +88,7 @@
     wirelesstools
     playerctl
     pamixer
-    swaybg
+    swww
     tmux
     curl
   ];

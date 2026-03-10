@@ -19,7 +19,7 @@ PanelWindow {
         if (wallPanelOpen)  return wallPanelHeight + 28
         return 0
     }
-    property int wallPanelHeight: 260
+    property int wallPanelHeight: 300
     Behavior on implicitHeight { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
     exclusiveZone: 32
@@ -213,6 +213,8 @@ PanelWindow {
     property bool   wallLoading: false
     property var    wallResults: []
     property string wallApiKey:  ""
+    property bool   wallTabLocal: false   // false=Wallhaven, true=Lokal
+    property var    localWalls:   []
 
     Process {
         id: wallFetcher
@@ -232,6 +234,20 @@ PanelWindow {
     }
     Timer { id: wallFetchTimer; interval: 50; repeat: false; onTriggered: wallFetcher.running = true }
 
+    Process {
+        id: localWallScanner
+        command: ["sh", "-c",
+            "find /home/asus/wallpapers -maxdepth 1 -type f " +
+            "\\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) " +
+            "2>/dev/null | sort"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const files = text.trim().split("\n").filter(f => f.length > 0)
+                bar.localWalls = files.map(f => ({ path: f, name: f.split("/").pop() }))
+            }
+        }
+    }
+
     function wallSearch() {
         bar.wallLoading = true
         bar.wallResults = []
@@ -245,6 +261,7 @@ PanelWindow {
 
     // ── Wallpaper indirme durumu ──────────────────────────────────────────
     property string wallApplyTarget:  ""
+    property string wallSavePath:     ""       // ~/wallpapers/<orijinal-ad>
     property bool   wallDownloading:  false
     property real   wallDlProgress:   0.0      // 0.0 – 1.0
     property int    wallDlExpected:   0        // beklenen bayt
@@ -274,21 +291,20 @@ PanelWindow {
         id: wallDlProc
         property string dlUrl: ""
         command: ["sh", "-c",
-            "rm -f /tmp/qs-wall.jpg; " +
             "curl -L --max-time 60 --user-agent 'Mozilla/5.0' " +
             "'" + wallDlProc.dlUrl + "' " +
-            "-o /tmp/qs-wall.jpg 2>/tmp/qs-wall-err.txt; " +
-            "echo DONE > /tmp/qs-wall-done"]
+            "-o /tmp/qs-wall.jpg 2>/tmp/qs-wall-err.txt && " +
+            "mkdir -p /home/asus/wallpapers && " +
+            "cp /tmp/qs-wall.jpg '" + bar.wallSavePath + "'"]
         onRunningChanged: {
             if (running) {
                 bar.wallDlProgress = 0
                 wallDlPollTimer.start()
             } else {
                 wallDlPollTimer.stop()
-                bar.wallDownloading  = false
                 bar.wallDlProgress   = 1.0
                 bar.wallDlLabel      = "Uygulanıyor..."
-                swaybgRestarter.running = true
+                bar.applyWallpaper("/tmp/qs-wall.jpg")
             }
         }
     }
@@ -324,22 +340,32 @@ PanelWindow {
         onTriggered: wallSizePoller.running = true
     }
 
-    // 4) İndirme tamamlanınca swaybg uygula
+    // 4) İndirme tamamlanınca swaybg uygula — btAction pattern
+    property string swaybgCmd: ""
     Process {
         id: swaybgRestarter
-        command: ["sh", "-c",
-            "pkill -x swaybg 2>/dev/null; sleep 0.2; " +
-            "swaybg -o eDP-1 -m fill -i /tmp/qs-wall.jpg &"]
+        command: ["sh", "-c", bar.swaybgCmd || "true"]
         onRunningChanged: {
-            if (!running) {
-                bar.wallDlLabel    = ""
-                bar.wallDlProgress = 0
+            if (!running && bar.swaybgCmd !== "true") {
+                bar.wallDlLabel     = "Uygulandı ✓"
+                bar.wallDlProgress  = 0
+                bar.wallDownloading = false
+                Qt.callLater(function() { bar.wallDlLabel = "" })
             }
         }
+    }
+    Timer { id: swaybgTimer; interval: 150; repeat: false; onTriggered: swaybgRestarter.running = true }
+
+    function applyWallpaper(path) {
+        bar.swaybgCmd = "swww img '" + path + "' --transition-type fade --transition-fps 60 --transition-duration 1"
+        swaybgRestarter.running = false
+        swaybgTimer.start()
     }
 
     function wallApply(url) {
         if (bar.wallDownloading) return   // çift tıklamayı önle
+        const fname = url.split("/").pop().split("?")[0] || "wallpaper.jpg"
+        bar.wallSavePath    = "/home/asus/wallpapers/" + fname
         bar.wallApplyTarget = url
         bar.wallDownloading = true
         bar.wallDlProgress  = 0
@@ -827,21 +853,19 @@ PanelWindow {
         }
     }
 
-    // ── Wallhaven paneli — sol tarafta, sabit genişlik ────────────────────
+    // ── Wallhaven + Lokal paneli ──────────────────────────────────────────
     Rectangle {
         id: wallPanel
         anchors { top: barBg.bottom; left: parent.left }
-        width: 460                           // ← EKSİK OLAN BUYDU
+        width: 460
         height: bar.wallPanelHeight
         color:  bar.clrPanel
         visible: bar.wallPanelOpen
         clip: true
 
-        // Sol üst köşe düzeltme (radius görünümü için)
         Rectangle {
             anchors { top: parent.top; left: parent.left }
-            width: parent.radius
-            height: parent.radius
+            width: parent.radius; height: parent.radius
             color: parent.color
         }
 
@@ -850,155 +874,204 @@ PanelWindow {
             anchors { fill: parent; margins: 12 }
             spacing: 8
 
-            // Arama satırı
+            // ── Tab satırı ────────────────────────────────────────────────
             Row {
+                width: parent.width; spacing: 4
+
+                // Wallhaven tab
+                Rectangle {
+                    width: (parent.width - 4) / 2; height: 28; radius: 8
+                    color: !bar.wallTabLocal ? Qt.rgba(0.90,0.60,0.46,0.22) : bar.clrSurf
+                    Row {
+                        anchors.centerIn: parent; spacing: 6
+                        Text { text: "\uf0ac"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: !bar.wallTabLocal ? bar.clrAccent : bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Wallhaven"; font.pixelSize: 11; font.family: "Noto Sans"; color: !bar.wallTabLocal ? bar.clrAccent : bar.clrMuted; font.bold: !bar.wallTabLocal }
+                    }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: bar.wallTabLocal = false }
+                }
+
+                // Lokal tab
+                Rectangle {
+                    width: (parent.width - 4) / 2; height: 28; radius: 8
+                    color: bar.wallTabLocal ? Qt.rgba(0.65,0.75,0.50,0.18) : bar.clrSurf
+                    Row {
+                        anchors.centerIn: parent; spacing: 6
+                        Text { text: "\uf07c"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: bar.wallTabLocal ? bar.clrGreen : bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
+                        Text { text: "Lokal"; font.pixelSize: 11; font.family: "Noto Sans"; color: bar.wallTabLocal ? bar.clrGreen : bar.clrMuted; font.bold: bar.wallTabLocal }
+                    }
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: { bar.wallTabLocal = true; localWallScanner.running = true }
+                    }
+                }
+            }
+
+            // ── Wallhaven içeriği ─────────────────────────────────────────
+            Column {
+                visible: !bar.wallTabLocal
+                width: parent.width; spacing: 8
+
+                Row {
+                    width: parent.width; spacing: 6
+
+                    Rectangle {
+                        width: parent.width - 28*3 - 28 - 6*4; height: 28; radius: 14
+                        color: bar.clrSurf
+                        Row {
+                            anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                            spacing: 6
+                            Text { text: "\uf002"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
+                            TextInput {
+                                id: wallQueryField
+                                width: parent.width - 20
+                                color: bar.clrText; font.pixelSize: 11; font.family: "Noto Sans"
+                                text: bar.wallQuery
+                                onTextChanged: bar.wallQuery = text
+                                Keys.onReturnPressed: bar.wallSearch()
+                                anchors.verticalCenter: parent.verticalCenter
+                                Text { anchors.fill: parent; text: "Wallpaper ara..."; color: bar.clrMuted; font: parent.font; visible: parent.text.length === 0; verticalAlignment: Text.AlignVCenter }
+                            }
+                        }
+                    }
+
+                    Repeater {
+                        model: [
+                            { icon: "\uf005", val: "toplist" },
+                            { icon: "\uf017", val: "date_added" },
+                            { icon: "\uf06e", val: "views" }
+                        ]
+                        Rectangle {
+                            required property var modelData
+                            width: 28; height: 28; radius: 8
+                            color: bar.wallSorting === modelData.val ? Qt.rgba(0.90,0.60,0.46,0.25) : bar.clrSurf
+                            Text { anchors.centerIn: parent; text: modelData.icon; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: bar.wallSorting === modelData.val ? bar.clrAccent : bar.clrMuted }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { bar.wallSorting = modelData.val; bar.wallSearch() } }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 28; height: 28; radius: 8; color: bar.clrAccent
+                        Text { anchors.centerIn: parent; text: "\uf002"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: "#2D353B" }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: bar.wallSearch() }
+                    }
+                }
+
+                Text { visible: bar.wallLoading; text: "Yükleniyor..."; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
+                Text { visible: !bar.wallLoading && bar.wallResults.length === 0; text: "Arama yap veya Enter'a bas"; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
+
+                // Progress bar
+                Rectangle {
+                    visible: bar.wallDownloading
+                    width: parent.width; height: 36; radius: 10; color: bar.clrSurf
+                    Rectangle {
+                        id: dlFill
+                        anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+                        width: Math.max(parent.radius * 2, parent.width * bar.wallDlProgress)
+                        radius: parent.radius
+                        color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : bar.clrAccent
+                        Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 200 } }
+                    }
+                    Rectangle {
+                        visible: bar.wallDlProgress > 0 && bar.wallDlProgress < 1.0
+                        anchors { top: parent.top; bottom: parent.bottom }
+                        width: 60; x: dlFill.width - 30; radius: parent.radius
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "transparent" }
+                            GradientStop { position: 0.5; color: Qt.rgba(1,1,1,0.12) }
+                            GradientStop { position: 1.0; color: "transparent" }
+                        }
+                        Behavior on x { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
+                    }
+                    RowLayout {
+                        anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
+                        Text { text: bar.wallDlProgress >= 1.0 ? "\uf00c" : "\uf019"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : "#2D353B" }
+                        Text { Layout.fillWidth: true; text: bar.wallDlProgress >= 1.0 ? "Uygulandı" : (bar.wallDlLabel.length > 0 ? bar.wallDlLabel : "İndiriliyor..."); color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : "#2D353B"; font.pixelSize: 11; font.family: "Noto Sans"; font.bold: true }
+                        Text { visible: bar.wallDlProgress > 0 && bar.wallDlProgress < 1.0; text: Math.round(bar.wallDlProgress * 100) + "%"; color: "#2D353B"; font.pixelSize: 11; font.bold: true; font.family: "Noto Sans" }
+                    }
+                }
+
+                Grid {
+                    visible: bar.wallResults.length > 0
+                    width: parent.width; columns: 4; spacing: 6
+                    Repeater {
+                        model: bar.wallResults
+                        Rectangle {
+                            required property var modelData
+                            width: Math.floor((wallPanelCol.width - 3*6) / 4)
+                            height: width * 9 / 16
+                            radius: 6; color: bar.clrSurf; clip: true
+                            Image { anchors.fill: parent; source: modelData.thumb; fillMode: Image.PreserveAspectCrop; asynchronous: true }
+                            Rectangle {
+                                id: thumbOver; anchors.fill: parent; radius: parent.radius
+                                color: "#88000000"; opacity: 0
+                                Behavior on opacity { NumberAnimation { duration: 100 } }
+                                Text { anchors.centerIn: parent; text: "\uf019"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: "white" }
+                            }
+                            scale: 1.0
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+                            MouseArea {
+                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onEntered: { thumbOver.opacity = 1; parent.scale = 1.05 }
+                                onExited:  { thumbOver.opacity = 0; parent.scale = 1.0  }
+                                onClicked: bar.wallApply(modelData.full)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Lokal içeriği ─────────────────────────────────────────────
+            Column {
+                visible: bar.wallTabLocal
                 width: parent.width; spacing: 6
 
-                Rectangle {
-                    width: parent.width - 28*3 - 28 - 6*4
-                    height: 28
-                    radius: 14
-                    color: bar.clrSurf
-                    Row {
-                        anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                        spacing: 6
-                        Text { text: "\uf002"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 10; color: bar.clrMuted; anchors.verticalCenter: parent.verticalCenter }
-                        TextInput {
-                            id: wallQueryField
-                            width: parent.width - 20
-                            color: bar.clrText
-                            font.pixelSize: 11
-                            font.family: "Noto Sans"
-                            text: bar.wallQuery
-                            onTextChanged: bar.wallQuery = text
-                            Keys.onReturnPressed: bar.wallSearch()
-                            anchors.verticalCenter: parent.verticalCenter
-                            Text { anchors.fill: parent; text: "Wallpaper ara..."; color: bar.clrMuted; font: parent.font; visible: parent.text.length === 0; verticalAlignment: Text.AlignVCenter }
-                        }
-                    }
-                }
-
-                Repeater {
-                    model: [
-                        { icon: "\uf005", val: "toplist" },
-                        { icon: "\uf017", val: "date_added" },
-                        { icon: "\uf06e", val: "views" }
-                    ]
+                Row {
+                    width: parent.width
+                    Text { text: "~/wallpapers"; color: bar.clrSub; font.pixelSize: 10; font.family: "Noto Sans"; anchors.verticalCenter: parent.verticalCenter; Layout.fillWidth: true }
+                    Item { width: parent.width - 90 }
                     Rectangle {
-                        required property var modelData
-                        width: 28; height: 28; radius: 8
-                        color: bar.wallSorting === modelData.val ? Qt.rgba(0.90,0.60,0.46,0.25) : bar.clrSurf
-                        Text { anchors.centerIn: parent; text: modelData.icon; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: bar.wallSorting === modelData.val ? bar.clrAccent : bar.clrMuted }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { bar.wallSorting = modelData.val; bar.wallSearch() } }
+                        width: 28; height: 28; radius: 8; color: bar.clrSurf
+                        Text { anchors.centerIn: parent; text: "\uf021"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: bar.clrMuted }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: localWallScanner.running = true }
                     }
                 }
 
-                Rectangle {
-                    width: 28; height: 28; radius: 8; color: bar.clrAccent
-                    Text { anchors.centerIn: parent; text: "\uf002"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: "#2D353B" }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: bar.wallSearch() }
-                }
-            }
+                Text { visible: bar.localWalls.length === 0; text: "~/wallpapers/ klasörü boş"; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
 
-            Text { visible: bar.wallLoading; text: "Yükleniyor..."; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
-            Text { visible: !bar.wallLoading && bar.wallResults.length === 0; text: "Arama yap veya Enter'a bas"; color: bar.clrMuted; font.pixelSize: 11; font.family: "Noto Sans" }
-
-            // ── İndirme progress bar ──────────────────────────────────────
-            Rectangle {
-                visible: bar.wallDownloading
-                width: parent.width
-                height: 36
-                radius: 10
-                color: bar.clrSurf
-
-                // Progress dolgu
-                Rectangle {
-                    id: dlFill
-                    anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                    width: Math.max(parent.radius * 2, parent.width * bar.wallDlProgress)
-                    radius: parent.radius
-                    color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : bar.clrAccent
-                    Behavior on width { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-                    Behavior on color { ColorAnimation { duration: 200 } }
-                }
-
-                // Shimmer animasyonu — indirme sırasında
-                Rectangle {
-                    visible: bar.wallDlProgress > 0 && bar.wallDlProgress < 1.0
-                    anchors { top: parent.top; bottom: parent.bottom }
-                    width: 60
-                    x: dlFill.width - 30
-                    radius: parent.radius
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: "transparent" }
-                        GradientStop { position: 0.5; color: Qt.rgba(1,1,1,0.12) }
-                        GradientStop { position: 1.0; color: "transparent" }
-                    }
-                    Behavior on x { NumberAnimation { duration: 350; easing.type: Easing.OutCubic } }
-                }
-
-                RowLayout {
-                    anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
-
-                    Text {
-                        text: bar.wallDlProgress >= 1.0 ? "\uf00c" : "\uf019"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
-                        color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : "#2D353B"
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: bar.wallDlProgress >= 1.0
-                            ? "Uygulandı"
-                            : (bar.wallDlLabel.length > 0 ? bar.wallDlLabel : "İndiriliyor...")
-                        color: bar.wallDlProgress >= 1.0 ? bar.clrGreen : "#2D353B"
-                        font.pixelSize: 11
-                        font.family: "Noto Sans"
-                        font.bold: true
-                    }
-
-                    Text {
-                        visible: bar.wallDlProgress > 0 && bar.wallDlProgress < 1.0
-                        text: Math.round(bar.wallDlProgress * 100) + "%"
-                        color: "#2D353B"
-                        font.pixelSize: 11
-                        font.bold: true
-                        font.family: "Noto Sans"
-                    }
-                }
-            }
-
-            Grid {
-                visible: bar.wallResults.length > 0
-                width: parent.width; columns: 4; spacing: 6
-
-                Repeater {
-                    model: bar.wallResults
-                    Rectangle {
-                        required property var modelData
-                        width:  Math.floor((wallPanelCol.width - 3*6) / 4)
-                        height: width * 9 / 16
-                        radius: 6; color: bar.clrSurf; clip: true
-
-                        Image { anchors.fill: parent; source: modelData.thumb; fillMode: Image.PreserveAspectCrop; asynchronous: true }
-
+                Grid {
+                    visible: bar.localWalls.length > 0
+                    width: parent.width; columns: 4; spacing: 6
+                    Repeater {
+                        model: bar.localWalls
                         Rectangle {
-                            id: thumbOver; anchors.fill: parent; radius: parent.radius
-                            color: "#88000000"; opacity: 0
-                            Behavior on opacity { NumberAnimation { duration: 100 } }
-                            Text { anchors.centerIn: parent; text: "\uf019"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: "white" }
-                        }
-
-                        scale: 1.0
-                        Behavior on scale { NumberAnimation { duration: 100 } }
-
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
-                            onEntered: { thumbOver.opacity = 1; parent.scale = 1.05 }
-                            onExited:  { thumbOver.opacity = 0; parent.scale = 1.0  }
-                            onClicked: bar.wallApply(modelData.full)
+                            required property var modelData
+                            width: Math.floor((wallPanelCol.width - 3*6) / 4)
+                            height: width * 9 / 16
+                            radius: 6; color: bar.clrSurf; clip: true
+                            Image {
+                                anchors.fill: parent
+                                source: "file://" + modelData.path
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                            }
+                            Rectangle {
+                                id: localThumbOver; anchors.fill: parent; radius: parent.radius
+                                color: "#88000000"; opacity: 0
+                                Behavior on opacity { NumberAnimation { duration: 100 } }
+                                Text { anchors.centerIn: parent; text: "\uf00c"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18; color: "white" }
+                            }
+                            scale: 1.0
+                            Behavior on scale { NumberAnimation { duration: 100 } }
+                            MouseArea {
+                                anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                                onEntered: { localThumbOver.opacity = 1; parent.scale = 1.05 }
+                                onExited:  { localThumbOver.opacity = 0; parent.scale = 1.0  }
+                                onClicked: {
+                                    bar.applyWallpaper(modelData.path)
+                                }
+                            }
                         }
                     }
                 }
