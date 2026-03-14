@@ -1,87 +1,78 @@
 // modules/Workspaces.qml — Niri workspace göstergesi
-// niri msg -j workspaces çıktısını parse eder
+// Kullanılmayan:  fa-circle (boş daire)     \uf10c
+// Odaklanmış:     fa-circle-dot (dolu daire) \uf192
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
 
 Row {
     id: wsWidget
-    spacing: 6
+    spacing: 4
 
-    property color activeColor:   "#FAB387"  // Peach
-    property color inactiveColor: "#313244"  // Surface
+    property color activeColor:   "#E69875"
+    property color inactiveColor: "#7A8478"
 
-    // Workspace verisi
     property var workspaces: []
-    property int focusedId: -1
 
-    // ─── niri IPC polling ─────────────────────────────────────────────────
     Process {
         id: niriPoller
         command: ["niri", "msg", "-j", "workspaces"]
         running: true
-
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     const data = JSON.parse(text)
-                    // Sadece mevcut monitördeki workspace'leri göster
-                    // ve id + is_focused bilgisini al
                     wsWidget.workspaces = data.map(ws => ({
-                        id: ws.id,
+                        id:      ws.id,
                         focused: ws.is_focused,
-                        active: ws.is_active
+                        idx:     ws.idx
                     }))
-                    const fw = data.find(ws => ws.is_focused)
-                    wsWidget.focusedId = fw ? fw.id : -1
-                } catch (e) {}
+                } catch(e) {}
             }
         }
     }
 
-    // 1 saniyede bir güncelle
     Timer {
-        interval: 1000
+        interval: 800
         running: true
         repeat: true
         onTriggered: niriPoller.running = true
     }
 
-    // ─── Workspace noktaları ──────────────────────────────────────────────
+    Process { id: ws1; command: ["niri", "msg", "action", "focus-workspace", "1"] }
+    Process { id: ws2; command: ["niri", "msg", "action", "focus-workspace", "2"] }
+    Process { id: ws3; command: ["niri", "msg", "action", "focus-workspace", "3"] }
+    Process { id: ws4; command: ["niri", "msg", "action", "focus-workspace", "4"] }
+    Process { id: ws5; command: ["niri", "msg", "action", "focus-workspace", "5"] }
+
+    function focusWs(idx) {
+        if      (idx === 1) ws1.running = true
+        else if (idx === 2) ws2.running = true
+        else if (idx === 3) ws3.running = true
+        else if (idx === 4) ws4.running = true
+        else if (idx === 5) ws5.running = true
+    }
+
     Repeater {
         model: wsWidget.workspaces
 
-        Rectangle {
+        Text {
             required property var modelData
 
-            // Odaklanmış workspace büyük ve renkli, diğerleri küçük
-            width:  modelData.focused ? 20 : 8
-            height: 8
-            radius: 4
-            color:  modelData.focused 
-                        ? wsWidget.activeColor 
-                        : wsWidget.inactiveColor
+            // \uf192 = fa-circle-dot (odaklanmış), \uf10c = fa-circle (boş)
+            text:  modelData.focused ? "\uf192" : "\uf10c"
+            color: modelData.focused ? wsWidget.activeColor : wsWidget.inactiveColor
 
-            // Genişlik animasyonu
-            Behavior on width {
-                NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-            }
-            Behavior on color {
-                ColorAnimation { duration: 200 }
-            }
+            font.family:   "JetBrainsMono Nerd Font"
+            font.pixelSize: modelData.focused ? 13 : 11
 
-            // Tıklayarak workspace'e geç
+            Behavior on color          { ColorAnimation  { duration: 180 } }
+            Behavior on font.pixelSize { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
             MouseArea {
                 anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    const p = Qt.createQmlObject(
-                        `import Quickshell.Io; Process {
-                            command: ["niri", "msg", "action", "focus-workspace", "${modelData.id}"]
-                            running: true
-                        }`, wsWidget
-                    )
-                }
+                cursorShape:  Qt.PointingHandCursor
+                onClicked:    wsWidget.focusWs(modelData.idx)
             }
         }
     }

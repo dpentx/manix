@@ -10,7 +10,7 @@ PanelWindow {
 
     anchors { top: true; left: true; right: true }
 
-    implicitHeight: 32 + panelExtra
+    implicitHeight: 36 + panelExtra
     property int panelExtra: {
         if (volPopupOpen)   return 236
         if (mediaPanelOpen) return clock.hasMedia ? 96 : 44
@@ -22,7 +22,7 @@ PanelWindow {
     property int wallPanelHeight: 300
     Behavior on implicitHeight { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-    exclusiveZone: 32
+    exclusiveZone: 36
     focusable: true
     color: "transparent"
 
@@ -59,8 +59,29 @@ PanelWindow {
 
     property int  volume: 50
     property bool muted:  false
-    property bool volPopupOpen:  false
-    property bool wallPanelOpen: false
+    property bool volPopupOpen:     false
+    property bool wallPanelOpen:    false
+    property bool settingsMenuOpen: false
+    property bool powerMenuOpen:    false
+
+    property bool anyPanelOpen: mediaPanelOpen || btPanelOpen || wifiPanelOpen
+                             || volPopupOpen || wallPanelOpen
+                             || settingsMenuOpen || powerMenuOpen
+
+    function closeAllPanels() {
+        mediaPanelOpen    = false
+        btPanelOpen       = false
+        wifiPanelOpen     = false
+        volPopupOpen      = false
+        wallPanelOpen     = false
+        settingsMenuOpen  = false
+        powerMenuOpen     = false
+    }
+
+    // ── Güç komutları ─────────────────────────────────────────────────────
+    Process { id: powerShutdown; command: ["sh", "-c", "systemctl poweroff"] }
+    Process { id: powerReboot;   command: ["sh", "-c", "systemctl reboot"] }
+    Process { id: powerLogout;   command: ["sh", "-c", "niri msg action quit --skip-confirmation"] }
 
     // ── Process'ler ───────────────────────────────────────────────────────
     Process {
@@ -357,7 +378,7 @@ PanelWindow {
     Timer { id: swaybgTimer; interval: 150; repeat: false; onTriggered: swaybgRestarter.running = true }
 
     function applyWallpaper(path) {
-        bar.swaybgCmd = "swww img '" + path + "' --transition-type fade --transition-fps 60 --transition-duration 1"
+        bar.swaybgCmd = "swww img '" + path + "' --transition-type fade --transition-fps 60 --transition-duration 1 2>/tmp/qs-wall-err.txt"
         swaybgRestarter.running = false
         swaybgTimer.start()
     }
@@ -383,136 +404,249 @@ PanelWindow {
         onTriggered: { btPoller.running = true; wifiPoller.running = true; volPoller.running = true }
     }
 
+    // ── Dışarı tıklayınca panelleri kapat ────────────────────────────────
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        visible: bar.anyPanelOpen
+        MouseArea {
+            anchors.fill: parent
+            onClicked: bar.closeAllPanels()
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // ── Bar ────────────────────────────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════════════════
     Rectangle {
         id: barBg
         anchors { top: parent.top; left: parent.left; right: parent.right }
-        height: 32
+        height: 36
         color: bar.clrBase
 
-        RowLayout {
-            anchors { fill: parent; leftMargin: 16; rightMargin: 16 }
-            spacing: 0
+        // Alt border
+        Rectangle {
+            anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+            height: 1
+            color: Qt.rgba(1, 1, 1, 0.06)
+        }
 
-            // ── Sol: Saat + Tarih + Wallhaven butonu ──────────────────────
+        // Bar boşluğuna tıklayınca panelleri kapat
+        MouseArea { anchors.fill: parent; onClicked: bar.closeAllPanels() }
+
+        // ── Sol: Saat pill ────────────────────────────────────────────────
+        Rectangle {
+            id: leftPill
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            width: leftPillRow.implicitWidth + 28
+            color: "#CC3D4A56"
+            radius: 0
+            // sağ alt köşe yuvarlak
+            Rectangle {
+                anchors { bottom: parent.bottom; right: parent.right }
+                width: 20; height: 20; color: bar.clrBase
+            }
+            Rectangle {
+                anchors { bottom: parent.bottom; right: parent.right }
+                width: 20; height: 20; radius: 10; color: "#CC3D4A56"
+            }
+            MouseArea { anchors.fill: parent; onClicked: {} }
+
             Row {
-                Layout.alignment: Qt.AlignVCenter
+                id: leftPillRow
+                anchors.centerIn: parent
                 spacing: 12
 
                 Clock {
                     id: clock
                     textColor: bar.clrText
                     onClicked: {
-                        bar.mediaPanelOpen = !bar.mediaPanelOpen
-                        bar.btPanelOpen    = false
-                        bar.wifiPanelOpen  = false
-                        bar.wallPanelOpen  = false
+                        bar.mediaPanelOpen   = !bar.mediaPanelOpen
+                        bar.btPanelOpen      = false
+                        bar.wifiPanelOpen    = false
+                        bar.wallPanelOpen    = false
+                        bar.settingsMenuOpen = false
+                        bar.powerMenuOpen    = false
+                        bar.volPopupOpen     = false
                     }
                 }
 
-                // ── Wallhaven ikonu — sol tarafta ─────────────────────────
+                // ── Ayarlar / menü butonu ─────────────────────────────────
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf03e"
+                    text: "\uf0c9"   // fa-bars (hamburger)
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.wallPanelOpen ? bar.clrAccent : bar.clrMuted
+                    font.pixelSize: 12
+                    color: bar.settingsMenuOpen ? bar.clrAccent : bar.clrSub
                     MouseArea {
                         anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            bar.wallPanelOpen  = !bar.wallPanelOpen
-                            bar.wifiPanelOpen  = false
-                            bar.btPanelOpen    = false
-                            bar.mediaPanelOpen = false
-                            bar.volPopupOpen   = false
-                            if (bar.wallPanelOpen && bar.wallResults.length === 0)
-                                bar.wallSearch()
+                            bar.settingsMenuOpen = !bar.settingsMenuOpen
+                            bar.wallPanelOpen    = false
+                            bar.wifiPanelOpen    = false
+                            bar.btPanelOpen      = false
+                            bar.mediaPanelOpen   = false
+                            bar.volPopupOpen     = false
+                            bar.powerMenuOpen    = false
                         }
                     }
                 }
             }
+        }
 
-            Item { Layout.fillWidth: true }
+        // ── Orta: Workspace pill ──────────────────────────────────────────
+        Rectangle {
+            anchors.centerIn: parent
+            height: 26
+            width: wsRow.implicitWidth + 24
+            radius: 13
+            color: "#CC3D4A56"
+            MouseArea { anchors.fill: parent; onClicked: {} }
 
-            // ── Orta: Workspace noktaları ─────────────────────────────────
             Workspaces {
-                Layout.alignment: Qt.AlignVCenter | Qt.AlignHCenter
+                id: wsRow
+                anchors.centerIn: parent
                 activeColor:   bar.clrAccent
                 inactiveColor: bar.clrMuted
             }
+        }
 
-            Item { Layout.fillWidth: true }
+        // ── Sağ: İkon pill + Güç pill ─────────────────────────────────────
+        Row {
+            id: rightRow
+            anchors { right: parent.right; rightMargin: 0; verticalCenter: parent.verticalCenter }
+            spacing: 5
 
-            // ── Sağ: Volume + BT + WiFi ───────────────────────────────────
-            Row {
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 14
+            // İkon pill — vol + bt + wifi
+            Rectangle {
+                height: 26
+                width: rightIcons.implicitWidth + 24
+                anchors.verticalCenter: parent.verticalCenter
+                radius: 13
+                color: "#CC3D4A56"
+                MouseArea { anchors.fill: parent; onClicked: {} }
 
-                // Volume
-                Text {
-                    id: volIcon
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.volPopupOpen   = !bar.volPopupOpen
-                            bar.btPanelOpen    = false
-                            bar.wifiPanelOpen  = false
-                            bar.mediaPanelOpen = false
-                            bar.wallPanelOpen  = false
+                Row {
+                    id: rightIcons
+                    anchors.centerIn: parent
+                    spacing: 14
+
+                    Text {
+                        id: volIcon
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                bar.volPopupOpen     = !bar.volPopupOpen
+                                bar.btPanelOpen      = false
+                                bar.wifiPanelOpen    = false
+                                bar.mediaPanelOpen   = false
+                                bar.wallPanelOpen    = false
+                                bar.settingsMenuOpen = false
+                                bar.powerMenuOpen    = false
+                            }
+                            onWheel: function(wheel) {
+                                if (wheel.angleDelta.y > 0) volUpCmd.running = true
+                                else volDownCmd.running = true
+                            }
                         }
-                        onWheel: function(wheel) {
-                            if (wheel.angleDelta.y > 0) volUpCmd.running = true
-                            else volDownCmd.running = true
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf293"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: bar.btPowered
+                            ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
+                            : bar.clrMuted
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                bar.btPanelOpen      = !bar.btPanelOpen
+                                bar.wifiPanelOpen    = false
+                                bar.mediaPanelOpen   = false
+                                bar.volPopupOpen     = false
+                                bar.wallPanelOpen    = false
+                                bar.settingsMenuOpen = false
+                                bar.powerMenuOpen    = false
+                                if (bar.btPanelOpen) btPoller.running = true
+                            }
+                        }
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf1eb"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                bar.wifiPanelOpen    = !bar.wifiPanelOpen
+                                bar.btPanelOpen      = false
+                                bar.mediaPanelOpen   = false
+                                bar.volPopupOpen     = false
+                                bar.wallPanelOpen    = false
+                                bar.settingsMenuOpen = false
+                                bar.powerMenuOpen    = false
+                                bar.wifiPassExpandedSsid = ""
+                                if (bar.wifiPanelOpen) wifiListPoller.running = true
+                            }
                         }
                     }
                 }
+            }
 
-                // Bluetooth
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf293"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.btPowered
-                        ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
-                        : bar.clrMuted
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.btPanelOpen    = !bar.btPanelOpen
-                            bar.wifiPanelOpen  = false
-                            bar.mediaPanelOpen = false
-                            bar.volPopupOpen   = false
-                            bar.wallPanelOpen  = false
-                            if (bar.btPanelOpen) btPoller.running = true
-                        }
-                    }
+            // Güç pill — sağ köşe, sol alt yuvarlak
+            Rectangle {
+                id: powerPill
+                anchors { top: parent.top; bottom: parent.bottom }
+                width: powerPillInner.implicitWidth + 28
+                color: bar.powerMenuOpen ? "#CC5C3D3D" : "#CC3D4A56"
+                radius: 0
+                Behavior on color { ColorAnimation { duration: 150 } }
+                // sol alt köşe yuvarlak
+                Rectangle {
+                    anchors { bottom: parent.bottom; left: parent.left }
+                    width: 20; height: 20; color: bar.clrBase
                 }
+                Rectangle {
+                    anchors { bottom: parent.bottom; left: parent.left }
+                    width: 20; height: 20; radius: 10
+                    color: bar.powerMenuOpen ? "#CC5C3D3D" : "#CC3D4A56"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                }
+                MouseArea { anchors.fill: parent; onClicked: {} }
 
-                // WiFi
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf1eb"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
-                    color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
-                    MouseArea {
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.wifiPanelOpen  = !bar.wifiPanelOpen
-                            bar.btPanelOpen    = false
-                            bar.mediaPanelOpen = false
-                            bar.volPopupOpen   = false
-                            bar.wallPanelOpen  = false
-                            bar.wifiPassExpandedSsid = ""
-                            if (bar.wifiPanelOpen) wifiListPoller.running = true
+                Row {
+                    id: powerPillInner
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\uf011"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: bar.powerMenuOpen ? bar.clrRed : bar.clrSub
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                bar.powerMenuOpen    = !bar.powerMenuOpen
+                                bar.btPanelOpen      = false
+                                bar.wifiPanelOpen    = false
+                                bar.mediaPanelOpen   = false
+                                bar.volPopupOpen     = false
+                                bar.wallPanelOpen    = false
+                                bar.settingsMenuOpen = false
+                            }
                         }
                     }
                 }
@@ -532,11 +666,7 @@ PanelWindow {
         height: 228
         radius: 28
         color: "#F0333C43"
-
-        Row {
-            anchors.top: parent.top
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin: 14
+        MouseArea { anchors.fill: parent; onClicked: {} }
             spacing: 4
             Repeater {
                 model: 3
@@ -626,6 +756,7 @@ PanelWindow {
         color: bar.clrPanel
         visible: bar.mediaPanelOpen
         Behavior on height { NumberAnimation { duration: 180 } }
+        MouseArea { anchors.fill: parent; onClicked: {} }
         Rectangle {
             anchors { top: parent.top; left: parent.left }
             width: parent.radius
@@ -672,6 +803,7 @@ PanelWindow {
         radius: 12
         color: bar.clrPanel
         visible: bar.btPanelOpen
+        MouseArea { anchors.fill: parent; onClicked: {} }
         Rectangle {
             anchors { top: parent.top; right: parent.right }
             width: parent.radius
@@ -746,6 +878,7 @@ PanelWindow {
         radius: 12
         color: bar.clrPanel
         visible: bar.wifiPanelOpen
+        MouseArea { anchors.fill: parent; onClicked: {} }
         Rectangle {
             anchors { top: parent.top; right: parent.right }
             width: parent.radius
@@ -862,6 +995,7 @@ PanelWindow {
         color:  bar.clrPanel
         visible: bar.wallPanelOpen
         clip: true
+        MouseArea { anchors.fill: parent; onClicked: {} }
 
         Rectangle {
             anchors { top: parent.top; left: parent.left }
@@ -1072,6 +1206,186 @@ PanelWindow {
                                     bar.applyWallpaper(modelData.path)
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Ayarlar menüsü ────────────────────────────────────────────────────
+    Rectangle {
+        id: settingsMenu
+        anchors { top: barBg.bottom; left: parent.left }
+        anchors.topMargin: 6
+        width: 200
+        height: settingsMenuCol.implicitHeight + 20
+        radius: 12
+        color: bar.clrPanel
+        visible: bar.settingsMenuOpen
+        clip: true
+        MouseArea { anchors.fill: parent; onClicked: {} }
+
+        // Sol üst köşe kare
+        Rectangle {
+            anchors { top: parent.top; left: parent.left }
+            width: parent.radius; height: parent.radius
+            color: parent.color
+        }
+
+        Column {
+            id: settingsMenuCol
+            anchors { fill: parent; margins: 10 }
+            spacing: 4
+
+            Text {
+                text: "MENÜ"
+                color: bar.clrMuted
+                font.pixelSize: 9
+                font.bold: true
+                font.family: "Noto Sans"
+                leftPadding: 4
+            }
+
+            // Wallpaper
+            Rectangle {
+                width: parent.width; height: 36; radius: 8
+                color: wallMenuHover.containsMouse ? bar.clrSurf : "transparent"
+                Behavior on color { ColorAnimation { duration: 100 } }
+
+                Row {
+                    anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 10 }
+                    spacing: 10
+                    Text {
+                        text: "\uf03e"
+                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
+                        color: bar.clrAccent
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Wallpaper"
+                        font.pixelSize: 12; font.family: "Noto Sans"
+                        color: bar.clrText
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea {
+                    id: wallMenuHover
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    onClicked: {
+                        bar.settingsMenuOpen = false
+                        bar.wallPanelOpen    = true
+                        if (bar.wallResults.length === 0) bar.wallSearch()
+                    }
+                }
+            }
+
+            // Ayraç
+            Rectangle { width: parent.width; height: 1; color: bar.clrSurf; opacity: 0.5 }
+
+            // Yer tutucu — ileride buraya ek menü öğeleri gelecek
+            Rectangle {
+                width: parent.width; height: 36; radius: 8
+                color: moreMenuHover.containsMouse ? bar.clrSurf : "transparent"
+                Behavior on color { ColorAnimation { duration: 100 } }
+                opacity: 0.4
+
+                Row {
+                    anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 10 }
+                    spacing: 10
+                    Text {
+                        text: "\uf013"
+                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
+                        color: bar.clrMuted
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "Yakında..."
+                        font.pixelSize: 12; font.family: "Noto Sans"
+                        color: bar.clrMuted
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+                MouseArea { id: moreMenuHover; anchors.fill: parent; hoverEnabled: true }
+            }
+        }
+    }
+
+    // ── Güç menüsü ────────────────────────────────────────────────────────
+    Rectangle {
+        id: powerMenu
+        anchors { top: barBg.bottom; right: parent.right }
+        anchors.topMargin: 6
+        width: 180
+        height: powerMenuCol.implicitHeight + 20
+        radius: 12
+        color: bar.clrPanel
+        visible: bar.powerMenuOpen
+        clip: true
+        MouseArea { anchors.fill: parent; onClicked: {} }
+
+        // Sağ üst köşe kare
+        Rectangle {
+            anchors { top: parent.top; right: parent.right }
+            width: parent.radius; height: parent.radius
+            color: parent.color
+        }
+
+        Column {
+            id: powerMenuCol
+            anchors { fill: parent; margins: 10 }
+            spacing: 4
+
+            Text {
+                text: "GÜÇ"
+                color: bar.clrMuted
+                font.pixelSize: 9; font.bold: true; font.family: "Noto Sans"
+                leftPadding: 4
+            }
+
+            Repeater {
+                model: [
+                    { icon: "\uf2f5", label: "Oturumu Kapat", clr: "#7FBBB3", cmd: "logout" },
+                    { icon: "\uf01e", label: "Yeniden Başlat", clr: "#E6B450", cmd: "reboot"  },
+                    { icon: "\uf011", label: "Kapat",          clr: "#E67E80", cmd: "shutdown" }
+                ]
+
+                Rectangle {
+                    required property var modelData
+                    width: powerMenuCol.width; height: 36; radius: 8
+                    color: pwHover.containsMouse
+                        ? Qt.rgba(
+                            parseInt(modelData.clr.slice(1,3),16)/255,
+                            parseInt(modelData.clr.slice(3,5),16)/255,
+                            parseInt(modelData.clr.slice(5,7),16)/255,
+                            0.15)
+                        : "transparent"
+                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                    Row {
+                        anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 10 }
+                        spacing: 10
+                        Text {
+                            text: modelData.icon
+                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
+                            color: modelData.clr
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: modelData.label
+                            font.pixelSize: 12; font.family: "Noto Sans"
+                            color: bar.clrText
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                    MouseArea {
+                        id: pwHover
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                        onClicked: {
+                            bar.powerMenuOpen = false
+                            if      (modelData.cmd === "logout")   powerLogout.running   = true
+                            else if (modelData.cmd === "reboot")   powerReboot.running   = true
+                            else if (modelData.cmd === "shutdown") powerShutdown.running = true
                         }
                     }
                 }
