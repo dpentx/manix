@@ -97,7 +97,6 @@ PanelWindow {
             radius: 24
             color:  overlay.clrCard
 
-            // Giriş animasyonu
             opacity: 0
             scale:   0.92
             Component.onCompleted: entryAnim.start()
@@ -108,7 +107,6 @@ PanelWindow {
                 NumberAnimation { target: panel; property: "scale";   to: 1; duration: 220; easing.type: Easing.OutCubic }
             }
 
-            // Panel tıklamalarını backdrop'a geçirme
             MouseArea { anchors.fill: parent; onClicked: {} }
 
             ColumnLayout {
@@ -128,7 +126,6 @@ PanelWindow {
                         font.family: "Noto Sans"
                     }
 
-                    // Arama kutusu — OneUI Finder tarzı
                     Rectangle {
                         Layout.fillWidth: true
                         height: 44
@@ -156,6 +153,13 @@ PanelWindow {
 
                                 Keys.onTabPressed:    { appGrid.forceActiveFocus() }
                                 Keys.onDownPressed:   { appGrid.forceActiveFocus() }
+                                Keys.onReturnPressed: {
+                                    // İlk sonucu direkt aç
+                                    if (overlay.filteredApps.length > 0) {
+                                        const app = overlay.filteredApps[0]
+                                        overlay.launchRequested(app.exec, app.terminal)
+                                    }
+                                }
                                 Keys.onEscapePressed: overlay.closeRequested()
 
                                 Text {
@@ -224,8 +228,9 @@ PanelWindow {
                         highlightMoveDuration: 100
 
                         Keys.onReturnPressed: {
-                            if (currentIndex >= 0 && currentIndex < filteredApps.length) {
-                                const app = filteredApps[currentIndex]
+                            const apps = overlay.filteredApps
+                            if (currentIndex >= 0 && currentIndex < apps.length) {
+                                const app = apps[currentIndex]
                                 overlay.launchRequested(app.exec, app.terminal)
                             }
                         }

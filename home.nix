@@ -17,13 +17,9 @@
     pamixer
     nordzy-cursor-theme
     microsoft-edge
-    vscode
-    python315
     prismlauncher
-    kdePackages.audiotube
     github-desktop
     papirus-icon-theme
-    catppuccin-gtk
   ];
 
   programs.home-manager.enable = true;
@@ -91,7 +87,6 @@
 
   # ─── Niri yapılandırması ──────────────────────────────────────────────────
   xdg.configFile."niri/config.kdl".text = ''
-    // ── Giriş aygıtları ───────────────────────────────────────────────────
     input {
         keyboard {
             xkb {
@@ -110,14 +105,9 @@
         }
 
         mouse {
-            natural-scroll false
         }
-
-        warp-mouse-to-focus
-        focus-follows-mouse max-scroll-amount="0%"
     }
 
-    // ── Düzen ─────────────────────────────────────────────────────────────
     layout {
         gaps 8
         center-focused-column "never"
@@ -147,13 +137,7 @@
         }
     }
 
-    // ── Görünüm ───────────────────────────────────────────────────────────
     prefer-no-csd
-
-    cursor {
-        theme "Nordzy-catppuccin-mocha-peach"
-        size 24
-    }
 
     screenshot-path "~/Pictures/Screenshots/screenshot-%Y-%m-%d_%H-%M-%S.png"
 
@@ -161,75 +145,37 @@
         skip-at-startup
     }
 
-    // ── Ortam değişkenleri ────────────────────────────────────────────────
     environment {
         DISPLAY ":1"
         NIXOS_OZONE_WL "1"
         QT_QPA_PLATFORM "wayland"
         MOZ_ENABLE_WAYLAND "1"
-        GTK_USE_PORTAL "1"
     }
 
-    // ── Başlangıç uygulamaları ────────────────────────────────────────────
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
     spawn-at-startup "swww-daemon"
     spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"
 
-    // ── Animasyonlar ──────────────────────────────────────────────────────
-    animations {
-        workspace-switch {
-            spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
-        }
-
-        window-open {
-            duration-ms 150
-            curve "ease-out-expo"
-        }
-
-        window-close {
-            duration-ms 150
-            curve "ease-out-quad"
-        }
-
-        window-movement {
-            spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
-        }
-
-        window-resize {
-            spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
-        }
-
-        horizontal-view-movement {
-            spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
-        }
-    }
-
-    // ── Tuş bağlamaları ───────────────────────────────────────────────────
     binds {
-        // Temel
-        Mod+Return { spawn "kitty"; }
-        Mod+A      { spawn "sh" "-c" "touch /tmp/qs-toggle"; }
-        Mod+Q      { close-window; }
+        Mod+Return  { spawn "kitty"; }
+        Mod+A       { spawn "sh" "-c" "touch /tmp/qs-toggle"; }
+        Mod+Q       { close-window; }
         Mod+Shift+E { quit skip-confirmation=true; }
 
-        // Odak
         Mod+Left  { focus-column-left; }
         Mod+Right { focus-column-right; }
         Mod+Up    { focus-window-up; }
         Mod+Down  { focus-window-down; }
 
-        // Taşıma
         Mod+Shift+Left  { move-column-left; }
         Mod+Shift+Right { move-column-right; }
         Mod+Shift+Up    { move-window-up; }
         Mod+Shift+Down  { move-window-down; }
 
-        // Sütun genişliği
-        Mod+R { switch-preset-column-width; }
-        Mod+F { maximize-column; }
+        Mod+R       { switch-preset-column-width; }
+        Mod+F       { maximize-column; }
         Mod+Shift+F { fullscreen-window; }
 
-        // Workspace
         Mod+1 { focus-workspace 1; }
         Mod+2 { focus-workspace 2; }
         Mod+3 { focus-workspace 3; }
@@ -242,21 +188,18 @@
         Mod+Shift+4 { move-column-to-workspace 4; }
         Mod+Shift+5 { move-column-to-workspace 5; }
 
-        // Ekran görüntüsü
-        Print             { screenshot; }
-        Mod+Print         { screenshot-screen; }
-        Mod+Shift+Print   { screenshot-window; }
+        Print           { screenshot; }
+        Mod+Print       { screenshot-screen; }
+        Mod+Shift+Print { screenshot-window; }
 
-        // Medya tuşları
-        XF86AudioRaiseVolume  allow-when-locked=true { spawn "pamixer" "--increase" "5"; }
-        XF86AudioLowerVolume  allow-when-locked=true { spawn "pamixer" "--decrease" "5"; }
-        XF86AudioMute         allow-when-locked=true { spawn "pamixer" "--toggle-mute"; }
-        XF86AudioPlay         allow-when-locked=true { spawn "playerctl" "play-pause"; }
-        XF86AudioNext         allow-when-locked=true { spawn "playerctl" "next"; }
-        XF86AudioPrev         allow-when-locked=true { spawn "playerctl" "previous"; }
+        XF86AudioRaiseVolume allow-when-locked=true { spawn "pamixer" "--increase" "5"; }
+        XF86AudioLowerVolume allow-when-locked=true { spawn "pamixer" "--decrease" "5"; }
+        XF86AudioMute        allow-when-locked=true { spawn "pamixer" "--toggle-mute"; }
+        XF86AudioPlay        allow-when-locked=true { spawn "playerctl" "play-pause"; }
+        XF86AudioNext        allow-when-locked=true { spawn "playerctl" "next"; }
+        XF86AudioPrev        allow-when-locked=true { spawn "playerctl" "previous"; }
     }
 
-    // ── Pencere kuralları ─────────────────────────────────────────────────
     window-rule {
         match app-id="steam"
         default-column-width { proportion 0.8; }
@@ -270,17 +213,6 @@
     window-rule {
         match app-id="org.gnome.Nautilus"
         default-column-width { proportion 0.5; }
-        open-floating true
-    }
-
-    // Ekran paylaşımı için xwayland desteği
-    window-rule {
-        match is-floating true
-        border {
-            width 2
-            active-color "#7FBBB3"
-            inactive-color "#3D4A56"
-        }
     }
   '';
 }

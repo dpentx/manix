@@ -6,12 +6,11 @@
     ./greetd.nix
     ./zapret.nix
     ./modules/qemu.nix
-    # ✅ noctalia.nix korunuyor ama artık sadece bluetooth/power servisleri var
   ];
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages_lqx;
+  boot.kernelPackages = pkgs.linuxPackages_zen;
 
   networking.hostName = "niiha";
   networking.networkmanager.enable = true;

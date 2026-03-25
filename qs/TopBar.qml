@@ -12,11 +12,13 @@ PanelWindow {
 
     implicitHeight: 36 + panelExtra
     property int panelExtra: {
-        if (volPopupOpen)   return 236
-        if (mediaPanelOpen) return clock.hasMedia ? 96 : 44
-        if (btPanelOpen)    return btPanelCol.implicitHeight   + 28
-        if (wifiPanelOpen)  return wifiPanelCol.implicitHeight + 28
-        if (wallPanelOpen)  return wallPanelHeight + 28
+        if (volPopupOpen)      return 236
+        if (mediaPanelOpen)    return clock.hasMedia ? 96 : 44
+        if (btPanelOpen)       return btPanelCol.implicitHeight    + 28
+        if (wifiPanelOpen)     return wifiPanelCol.implicitHeight  + 28
+        if (wallPanelOpen)     return wallPanelHeight + 28
+        if (settingsMenuOpen)  return settingsMenuCol.implicitHeight + 28
+        if (powerMenuOpen)     return powerMenuCol.implicitHeight   + 28
         return 0
     }
     property int wallPanelHeight: 300
@@ -437,19 +439,11 @@ PanelWindow {
         // ── Sol: Saat pill ────────────────────────────────────────────────
         Rectangle {
             id: leftPill
-            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-            width: leftPillRow.implicitWidth + 28
+            anchors { left: parent.left; leftMargin: 8; verticalCenter: parent.verticalCenter }
+            height: 30
+            width: leftPillRow.implicitWidth + 24
+            radius: 15
             color: "#CC3D4A56"
-            radius: 0
-            // sağ alt köşe yuvarlak
-            Rectangle {
-                anchors { bottom: parent.bottom; right: parent.right }
-                width: 20; height: 20; color: bar.clrBase
-            }
-            Rectangle {
-                anchors { bottom: parent.bottom; right: parent.right }
-                width: 20; height: 20; radius: 10; color: "#CC3D4A56"
-            }
             MouseArea { anchors.fill: parent; onClicked: {} }
 
             Row {
@@ -471,10 +465,9 @@ PanelWindow {
                     }
                 }
 
-                // ── Ayarlar / menü butonu ─────────────────────────────────
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf0c9"   // fa-bars (hamburger)
+                    text: "\uf0c9"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     color: bar.settingsMenuOpen ? bar.clrAccent : bar.clrSub
@@ -494,7 +487,92 @@ PanelWindow {
             }
         }
 
-        // ── Orta: Workspace pill ──────────────────────────────────────────
+        // ── Medya: Kontrol pill + Etiket ─────────────────────────────────
+        // Waybar custom/playerctl stili — prev/play/next pill
+        Rectangle {
+            id: mediaCtrlPill
+            visible: clock.hasMedia
+            anchors { left: leftPill.right; leftMargin: 5; verticalCenter: parent.verticalCenter }
+            height: 26
+            width: 68
+            radius: 13
+            color: "#CC3D4A56"
+            MouseArea { anchors.fill: parent; onClicked: {} }
+
+            Row {
+                anchors.centerIn: parent
+                spacing: 8
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf04a"   // fa-step-backward
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    color: clock.mediaPlaying ? "#E69875" : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: mediaPrev.running = true
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: clock.mediaPlaying ? "\uf04c" : "\uf04b"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    color: clock.mediaPlaying ? "#E69875" : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: mediaPlay.running = true
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf04e"   // fa-step-forward
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    color: clock.mediaPlaying ? "#E69875" : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: mediaNext.running = true
+                    }
+                }
+            }
+        }
+
+        // Waybar custom/playerlabel stili — sanatçı - şarkı
+        Rectangle {
+            id: mediaLabelPill
+            visible: clock.hasMedia
+            anchors { left: mediaCtrlPill.right; leftMargin: 4; verticalCenter: parent.verticalCenter }
+            height: 26
+            width: Math.min(mediaLabelText.implicitWidth + 20, 220)
+            radius: 13
+            color: "transparent"
+            clip: true
+
+            Text {
+                id: mediaLabelText
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                width: parent.width - 10
+
+                text: {
+                    const a = clock.mediaArtist
+                    const t = clock.mediaTitle
+                    if (a && t) return a + " - " + t
+                    return t || a
+                }
+                color: clock.mediaPlaying ? bar.clrText : bar.clrSub
+                font.pixelSize: 11
+                font.family: "Noto Sans"
+                elide: Text.ElideRight
+
+                Behavior on color { ColorAnimation { duration: 200 } }
+            }
+        }
         Rectangle {
             anchors.centerIn: parent
             height: 26
@@ -511,142 +589,120 @@ PanelWindow {
             }
         }
 
-        // ── Sağ: İkon pill + Güç pill ─────────────────────────────────────
-        Row {
-            id: rightRow
-            anchors { right: parent.right; rightMargin: 0; verticalCenter: parent.verticalCenter }
-            spacing: 5
+        // ── Sağ: Güç pill + İkon pill ─────────────────────────────────────
+        Rectangle {
+            id: powerPill
+            anchors { right: parent.right; rightMargin: 8; verticalCenter: parent.verticalCenter }
+            height: 26
+            width: 36
+            radius: 13
+            color: bar.powerMenuOpen ? Qt.rgba(0.90,0.24,0.25,0.35) : "#CC3D4A56"
+            Behavior on color { ColorAnimation { duration: 150 } }
+            MouseArea { anchors.fill: parent; onClicked: {} }
 
-            // İkon pill — vol + bt + wifi
-            Rectangle {
-                height: 26
-                width: rightIcons.implicitWidth + 24
-                anchors.verticalCenter: parent.verticalCenter
-                radius: 13
-                color: "#CC3D4A56"
-                MouseArea { anchors.fill: parent; onClicked: {} }
-
-                Row {
-                    id: rightIcons
-                    anchors.centerIn: parent
-                    spacing: 14
-
-                    Text {
-                        id: volIcon
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                bar.volPopupOpen     = !bar.volPopupOpen
-                                bar.btPanelOpen      = false
-                                bar.wifiPanelOpen    = false
-                                bar.mediaPanelOpen   = false
-                                bar.wallPanelOpen    = false
-                                bar.settingsMenuOpen = false
-                                bar.powerMenuOpen    = false
-                            }
-                            onWheel: function(wheel) {
-                                if (wheel.angleDelta.y > 0) volUpCmd.running = true
-                                else volDownCmd.running = true
-                            }
-                        }
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "\uf293"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: bar.btPowered
-                            ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
-                            : bar.clrMuted
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                bar.btPanelOpen      = !bar.btPanelOpen
-                                bar.wifiPanelOpen    = false
-                                bar.mediaPanelOpen   = false
-                                bar.volPopupOpen     = false
-                                bar.wallPanelOpen    = false
-                                bar.settingsMenuOpen = false
-                                bar.powerMenuOpen    = false
-                                if (bar.btPanelOpen) btPoller.running = true
-                            }
-                        }
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "\uf1eb"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                bar.wifiPanelOpen    = !bar.wifiPanelOpen
-                                bar.btPanelOpen      = false
-                                bar.mediaPanelOpen   = false
-                                bar.volPopupOpen     = false
-                                bar.wallPanelOpen    = false
-                                bar.settingsMenuOpen = false
-                                bar.powerMenuOpen    = false
-                                bar.wifiPassExpandedSsid = ""
-                                if (bar.wifiPanelOpen) wifiListPoller.running = true
-                            }
-                        }
+            Text {
+                id: powerPillInner
+                anchors.centerIn: parent
+                text: "\uf011"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 13
+                color: bar.powerMenuOpen ? bar.clrRed : bar.clrSub
+                Behavior on color { ColorAnimation { duration: 150 } }
+                MouseArea {
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        bar.powerMenuOpen    = !bar.powerMenuOpen
+                        bar.btPanelOpen      = false
+                        bar.wifiPanelOpen    = false
+                        bar.mediaPanelOpen   = false
+                        bar.volPopupOpen     = false
+                        bar.wallPanelOpen    = false
+                        bar.settingsMenuOpen = false
                     }
                 }
             }
+        }
 
-            // Güç pill — sağ köşe, sol alt yuvarlak
-            Rectangle {
-                id: powerPill
-                anchors { top: parent.top; bottom: parent.bottom }
-                width: powerPillInner.implicitWidth + 28
-                color: bar.powerMenuOpen ? "#CC5C3D3D" : "#CC3D4A56"
-                radius: 0
-                Behavior on color { ColorAnimation { duration: 150 } }
-                // sol alt köşe yuvarlak
-                Rectangle {
-                    anchors { bottom: parent.bottom; left: parent.left }
-                    width: 20; height: 20; color: bar.clrBase
+        Rectangle {
+            id: iconPill
+            anchors { right: powerPill.left; rightMargin: 5; verticalCenter: parent.verticalCenter }
+            height: 26
+            width: rightIcons.implicitWidth + 24
+            radius: 13
+            color: "#CC3D4A56"
+            MouseArea { anchors.fill: parent; onClicked: {} }
+
+            Row {
+                id: rightIcons
+                anchors.centerIn: parent
+                spacing: 14
+
+                Text {
+                    id: volIcon
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: bar.muted ? "\uf026" : bar.volume > 60 ? "\uf028" : bar.volume > 20 ? "\uf027" : "\uf026"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.muted ? bar.clrRed : bar.volPopupOpen ? bar.clrAccent : bar.clrSub
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.volPopupOpen     = !bar.volPopupOpen
+                            bar.btPanelOpen      = false
+                            bar.wifiPanelOpen    = false
+                            bar.mediaPanelOpen   = false
+                            bar.wallPanelOpen    = false
+                            bar.settingsMenuOpen = false
+                            bar.powerMenuOpen    = false
+                        }
+                        onWheel: function(wheel) {
+                            if (wheel.angleDelta.y > 0) volUpCmd.running = true
+                            else volDownCmd.running = true
+                        }
+                    }
                 }
-                Rectangle {
-                    anchors { bottom: parent.bottom; left: parent.left }
-                    width: 20; height: 20; radius: 10
-                    color: bar.powerMenuOpen ? "#CC5C3D3D" : "#CC3D4A56"
-                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf293"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.btPowered
+                        ? (bar.btAllDevices.filter(d => d.connected).length > 0 ? bar.clrBlue : bar.clrSub)
+                        : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.btPanelOpen      = !bar.btPanelOpen
+                            bar.wifiPanelOpen    = false
+                            bar.mediaPanelOpen   = false
+                            bar.volPopupOpen     = false
+                            bar.wallPanelOpen    = false
+                            bar.settingsMenuOpen = false
+                            bar.powerMenuOpen    = false
+                            if (bar.btPanelOpen) btPoller.running = true
+                        }
+                    }
                 }
-                MouseArea { anchors.fill: parent; onClicked: {} }
 
-                Row {
-                    id: powerPillInner
-                    anchors.centerIn: parent
-                    spacing: 6
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "\uf011"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: bar.powerMenuOpen ? bar.clrRed : bar.clrSub
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        MouseArea {
-                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                bar.powerMenuOpen    = !bar.powerMenuOpen
-                                bar.btPanelOpen      = false
-                                bar.wifiPanelOpen    = false
-                                bar.mediaPanelOpen   = false
-                                bar.volPopupOpen     = false
-                                bar.wallPanelOpen    = false
-                                bar.settingsMenuOpen = false
-                            }
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf1eb"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: bar.wifiConnected ? bar.clrGreen : bar.clrMuted
+                    MouseArea {
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            bar.wifiPanelOpen    = !bar.wifiPanelOpen
+                            bar.btPanelOpen      = false
+                            bar.mediaPanelOpen   = false
+                            bar.volPopupOpen     = false
+                            bar.wallPanelOpen    = false
+                            bar.settingsMenuOpen = false
+                            bar.powerMenuOpen    = false
+                            bar.wifiPassExpandedSsid = ""
+                            if (bar.wifiPanelOpen) wifiListPoller.running = true
                         }
                     }
                 }
@@ -667,6 +723,11 @@ PanelWindow {
         radius: 28
         color: "#F0333C43"
         MouseArea { anchors.fill: parent; onClicked: {} }
+
+        Row {
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin: 14
             spacing: 4
             Repeater {
                 model: 3
@@ -1217,7 +1278,6 @@ PanelWindow {
     Rectangle {
         id: settingsMenu
         anchors { top: barBg.bottom; left: parent.left }
-        anchors.topMargin: 6
         width: 200
         height: settingsMenuCol.implicitHeight + 20
         radius: 12
@@ -1226,11 +1286,11 @@ PanelWindow {
         clip: true
         MouseArea { anchors.fill: parent; onClicked: {} }
 
-        // Sol üst köşe kare
+        // Sol üst köşe kare — barın rengiyle örtüş
         Rectangle {
             anchors { top: parent.top; left: parent.left }
             width: parent.radius; height: parent.radius
-            color: parent.color
+            color: bar.clrBase
         }
 
         Column {
@@ -1315,7 +1375,6 @@ PanelWindow {
     Rectangle {
         id: powerMenu
         anchors { top: barBg.bottom; right: parent.right }
-        anchors.topMargin: 6
         width: 180
         height: powerMenuCol.implicitHeight + 20
         radius: 12
@@ -1324,11 +1383,11 @@ PanelWindow {
         clip: true
         MouseArea { anchors.fill: parent; onClicked: {} }
 
-        // Sağ üst köşe kare
+        // Sağ üst köşe kare — barın rengiyle örtüş
         Rectangle {
             anchors { top: parent.top; right: parent.right }
             width: parent.radius; height: parent.radius
-            color: parent.color
+            color: bar.clrBase
         }
 
         Column {
