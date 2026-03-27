@@ -22,6 +22,22 @@
 
   services.xserver.enable = true;
   programs.xwayland.enable = true;
+ 
+  hardware.graphics.enable = true;
+  services.xserver.videoDrivers = [ "nvidia" ];
+  hardware.nvidia = { 
+    modesetting.enable = true;
+    nvidiaSettings = true;
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    open = false;
+  };
+
+
+  zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 50;
+   };
 
   services.dbus.enable = true;
 
