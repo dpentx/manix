@@ -1,5 +1,12 @@
 {
-  description = "MaOS — Quickshell edition";
+  description = "MaOS";
+
+  nixConfig = {
+    extra-substituters = [ "https://dpentx.cachix.org" ];
+    extra-trusted-public-keys = [
+      "dpentx.cachix.org-1:LUimyvpOmN+reXprnlaRof/pkA+RXVgFxf1UgKXsm1M="
+    ];
+  };
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -13,8 +20,6 @@
       url = "git+https://git.outfoxxed.me/outfoxxed/quickshell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # ✅ noctalia kaldırıldı
   };
 
   outputs = { self, nixpkgs, home-manager, quickshell, ... }@inputs: {
@@ -24,7 +29,7 @@
       modules = [
         ./hardware-configuration.nix
         ./configuration.nix
-        ./noctalia.nix   # Sadece bluetooth/power servisleri
+        ./noctalia.nix
 
         home-manager.nixosModules.home-manager
         {
