@@ -380,7 +380,7 @@ PanelWindow {
     Timer { id: swaybgTimer; interval: 150; repeat: false; onTriggered: swaybgRestarter.running = true }
 
     function applyWallpaper(path) {
-        bar.swaybgCmd = "swww img '" + path + "' --transition-type fade --transition-fps 60 --transition-duration 1 2>/tmp/qs-wall-err.txt"
+        bar.swaybgCmd = "awww img '" + path + "' --transition-type fade --transition-fps 60 --transition-duration 1 2>/tmp/qs-wall-err.txt"
         swaybgRestarter.running = false
         swaybgTimer.start()
     }

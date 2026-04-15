@@ -153,7 +153,7 @@
     }
 
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
-    spawn-at-startup "swww-daemon"
+    spawn-at-startup "awww-daemon"
     spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"
 
     binds {

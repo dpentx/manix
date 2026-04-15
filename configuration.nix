@@ -103,7 +103,7 @@
     wirelesstools
     playerctl
     pamixer
-    swww
+    awww
     tmux
     curl
   ];
