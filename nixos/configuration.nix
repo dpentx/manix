@@ -110,6 +110,7 @@
     slurp
     brightnessctl
     python3Packages.pywal
+    wlogout
   ];
 
   security.polkit.enable = true;
