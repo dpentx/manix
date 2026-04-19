@@ -6,7 +6,7 @@
   home.enableNixpkgsReleaseCheck = false;
 
   imports = [
-    ../modules/quickshell-hm.nix
+    ../modules/niri/quickshell-hm.nix
     ../modules/config/shell.nix
     ../modules/config/terminal.nix
     ../modules/niri/niri.nix
