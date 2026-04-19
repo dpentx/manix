@@ -32,9 +32,9 @@
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
       modules = [
-        ./hardware-configuration.nix
-        ./configuration.nix
-        ./noctalia.nix
+        ./nixos/hardware-configuration.nix
+        ./nixos/configuration.nix
+        ./modules/config/hardware-conf.nix
 
         home-manager.nixosModules.home-manager
         {

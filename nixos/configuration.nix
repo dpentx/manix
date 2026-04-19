@@ -3,9 +3,9 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ./greetd.nix
-    ./zapret.nix
-    ./modules/qemu.nix
+    ../modules/loginm/greetd.nix
+    ../modules/network/zapret.nix
+    ../modules/vm/qemu.nix
   ];
 
   boot.loader.systemd-boot.enable = true;

@@ -1,95 +1,6 @@
-{ config, pkgs, lib, inputs, ... }:
+{ config, inputs, ... }:
+
 {
-  home.username = "asus";
-  home.homeDirectory = "/home/asus";
-  home.stateVersion = "25.11";
-  home.enableNixpkgsReleaseCheck = false;
-
-  imports = [
-    ./modules/quickshell-hm.nix
-    ./modules/shell.nix
-    ./modules/terminal.nix
-  ];
-
-  home.packages = with pkgs; [
-    nautilus
-    hyprshot
-    pamixer
-    nordzy-cursor-theme
-    microsoft-edge
-    prismlauncher
-    github-desktop
-    papirus-icon-theme
-    pear-desktop
-    onlyoffice-desktopeditors
-  ];
-
-  programs.home-manager.enable = true;
-
-  home.sessionVariables = {
-    NIXOS_OZONE_WL = "1";
-    GTK_THEME = "catppuccin-mocha-peach-standard+default";
-  };
-
-  gtk = {
-    enable = true;
-    theme = {
-      name = "catppuccin-mocha-peach-standard+default";
-      package = pkgs.catppuccin-gtk.override {
-        accents = [ "peach" ];
-        variant = "mocha";
-      };
-    };
-    iconTheme = {
-      name = "Papirus-Dark";
-      package = pkgs.papirus-icon-theme;
-    };
-    font = {
-      name = "Noto Sans";
-      size = 11;
-    };
-    gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
-    gtk4.extraConfig.gtk-application-prefer-dark-theme = true;
-    gtk4.theme = config.gtk.theme;
-  };
-
-  qt = {
-    enable = true;
-    platformTheme.name = "gtk3";
-    style = {
-      name = "adwaita-dark";
-      package = pkgs.adwaita-qt;
-    };
-  };
-
-  home.pointerCursor = {
-    name = "Nordzy-catppuccin-mocha-peach";
-    package = pkgs.nordzy-cursor-theme;
-    size = 24;
-    gtk.enable = true;
-    x11.enable = true;
-  };
-
-  xdg.userDirs = {
-    enable = true;
-    createDirectories = true;
-    setSessionVariables = true;
-  };
-
-  systemd.user.startServices = "sd-switch";
-
-  xdg.portal = {
-    enable = true;
-    extraPortals = with pkgs; [ xdg-desktop-portal-gtk ];
-    config.common.default = "gtk";
-  };
-
-  services.gnome-keyring = {
-    enable = true;
-    components = [ "pkcs11" "secrets" "ssh" ];
-  };
-
-  # ─── Niri yapılandırması ──────────────────────────────────────────────────
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
@@ -196,9 +107,9 @@
         Mod+Print       { screenshot-screen; }
         Mod+Shift+Print { screenshot-window; }
 
-        XF86AudioRaiseVolume allow-when-locked=true { spawn "pamixer" "--increase" "5"; }
-        XF86AudioLowerVolume allow-when-locked=true { spawn "pamixer" "--decrease" "5"; }
-        XF86AudioMute        allow-when-locked=true { spawn "pamixer" "--toggle-mute"; }
+        XF86AudioRaiseVolume allow-when-locked=true { spawn "pamixer""--increase" "5"; }
+        XF86AudioLowerVolume allow-when-locked=true { spawn "pamixer""--decrease" "5"; }
+        XF86AudioMute        allow-when-locked=true { spawn "pamixer""--toggle-mute"; }
         XF86AudioPlay        allow-when-locked=true { spawn "playerctl" "play-pause"; }
         XF86AudioNext        allow-when-locked=true { spawn "playerctl" "next"; }
         XF86AudioPrev        allow-when-locked=true { spawn "playerctl" "previous"; }
