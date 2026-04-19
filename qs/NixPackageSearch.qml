@@ -34,10 +34,6 @@ PanelWindow {
     visible: panelVisible
     color:   "transparent"
 
-    WlrLayerShell.layer:         WlrLayer.Overlay
-    WlrLayerShell.keyboardFocus: WlrKeyboardFocus.OnDemand
-    WlrLayerShell.namespace:     "nix-package-search"
-
     anchors.top:    true
     anchors.bottom: true
     anchors.left:   true
@@ -68,7 +64,7 @@ PanelWindow {
         readonly property color bg1:     "#343f44"
         readonly property color bg2:     "#3d484d"
         readonly property color bg3:     "#475258"
-        readonly property property color fg:      "#d3c6aa"
+        readonly property color fg:      "#d3c6aa"
         readonly property color grey:    "#859289"
         readonly property color red:     "#e67e80"
         readonly property color orange:  "#e69875"
@@ -431,33 +427,39 @@ PanelWindow {
     // ─── nix search process'i ────────────────────────────────────────────────
     Process {
         id: searchProcess
-        property string buf: ""
 
-        stdout: SplitParser {
-            splitMarker: ""    // boş = satır satır değil, tek blok
-            onRead: data => searchProcess.buf += data
-        }
+        stdout: StdioCollector { id: searchOut }
 
-        onExited: code => {
-            root.isSearching = false
-            if (code === 0) {
-                root.parseResults(searchProcess.buf)
-            } else {
-                root.setStatus("nix search başarısız oldu (kod: " + code + ")", ef.red)
+        stderr: StdioCollector { id: searchErr }
+
+        onRunningChanged: {
+            if (!running) {
+                root.isSearching = false
+                const errText = searchErr.text.trim()
+                const outText = searchOut.text.trim()
+                if (outText.length > 0 && outText.startsWith("{")) {
+                    root.parseResults(outText)
+                } else if (errText.length > 0) {
+                    root.setStatus("nix search hatası: " + errText.substring(0, 120), ef.red)
+                } else {
+                    root.setStatus("Sonuç bulunamadı.", ef.grey)
+                }
             }
-            searchProcess.buf = ""
         }
     }
 
     // ─── add-package.py process'i ────────────────────────────────────────────
     Process {
         id: addProcess
-        property int targetIndex: -1
-        property string addedAttr: ""
+        property int    targetIndex: -1
+        property string addedAttr:   ""
 
-        stdout: SplitParser {
-            onRead: line => {
-                const s = line.trim()
+        stdout: StdioCollector { id: addOut }
+        stderr: StdioCollector { id: addErr }
+
+        onRunningChanged: {
+            if (!running) {
+                const s = addOut.text.trim()
                 if (s === "already_installed") {
                     root.isAdding = false
                     root.setStatus("'" + addProcess.addedAttr + "' zaten packages.nix içinde.", ef.yellow)
@@ -468,24 +470,11 @@ PanelWindow {
                     if (addProcess.targetIndex >= 0)
                         resultsModel.setProperty(addProcess.targetIndex, "installed", true)
                     root.startRebuild()
-                } else if (s.startsWith("error:")) {
+                } else {
                     root.isAdding = false
-                    root.setStatus(s, ef.red)
+                    const errMsg = addErr.text.trim() || s || "bilinmeyen hata"
+                    root.setStatus("Hata: " + errMsg.substring(0, 120), ef.red)
                 }
-            }
-        }
-
-        stderr: SplitParser {
-            onRead: line => {
-                if (line.trim() !== "")
-                    root.setStatus("Hata: " + line.trim(), ef.red)
-            }
-        }
-
-        onExited: code => {
-            if (code !== 0) {
-                root.isAdding = false
-                root.setStatus("add-package.py başarısız (kod: " + code + ")", ef.red)
             }
         }
     }
@@ -494,22 +483,20 @@ PanelWindow {
     Process {
         id: rebuildProcess
 
-        stderr: SplitParser {
-            onRead: line => {
-                // Nix build logunu kısalt ve göster
-                if (line.indexOf("building") >= 0 || line.indexOf("installing") >= 0) {
-                    root.setStatus("⟳ " + line.trim().substring(0, 80), ef.orange)
-                }
-            }
-        }
+        stderr: StdioCollector { id: rebuildErr }
+        stdout: StdioCollector { id: rebuildOut }
 
-        onExited: code => {
-            root.isRebuilding = false
-            root.isAdding     = false
-            if (code === 0) {
-                root.setStatus("✓ Paket başarıyla kuruldu ve aktif!", ef.green)
-            } else {
-                root.setStatus("✗ Rebuild başarısız! Terminal'den kontrol et. (kod: " + code + ")", ef.red)
+        onRunningChanged: {
+            if (!running) {
+                root.isRebuilding = false
+                root.isAdding     = false
+                const combined = (rebuildOut.text + rebuildErr.text).trim()
+                // Basit hata tespiti: nix stderr'de hata çıkıyorsa
+                if (combined.indexOf("error:") >= 0 || combined.indexOf("failed") >= 0) {
+                    root.setStatus("✗ Rebuild başarısız! Son satır: " + combined.split("\n").pop().substring(0, 80), ef.red)
+                } else {
+                    root.setStatus("✓ Paket başarıyla kuruldu ve aktif!", ef.green)
+                }
             }
         }
     }
@@ -524,7 +511,8 @@ PanelWindow {
         root.isSearching = true
         root.setStatus("Aranıyor: " + q + "  (ilk çalıştırmada biraz sürebilir)", ef.blue)
 
-        searchProcess.buf = ""
+        // StdioCollector'ları sıfırla
+        searchProcess.running = false
         searchProcess.command = ["nix", "search", "nixpkgs", "--json", q]
         searchProcess.running = true
     }

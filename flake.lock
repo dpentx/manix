@@ -36,6 +36,22 @@
         "type": "github"
       }
     },
+    "qs-theme": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1776105353,
+        "narHash": "sha256-YZ8H2fqAOwe550ILsngFdlFDsaf9gZADESLVXL7/Py8=",
+        "owner": "tripathiji1312",
+        "repo": "quickshell",
+        "rev": "469f183db308ebf4d51854565174789aea1f78e1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tripathiji1312",
+        "repo": "quickshell",
+        "type": "github"
+      }
+    },
     "quickshell": {
       "inputs": {
         "nixpkgs": [
@@ -60,6 +76,7 @@
       "inputs": {
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
+        "qs-theme": "qs-theme",
         "quickshell": "quickshell"
       }
     }

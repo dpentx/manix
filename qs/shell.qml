@@ -6,7 +6,9 @@ ShellRoot {
     id: root
 
     property bool   launcherVisible: false
+    property bool   nixSearchVisible: false
     property int    lastMtime:       0
+    property int    lastNixMtime:    0
     property string pendingLaunch:   ""
 
     // ── Uygulama başlatıcı — Loader dışında, kalıcı ───────────────────────
@@ -51,7 +53,19 @@ ShellRoot {
         }
     }
 
-    // ── Toggle: mtime polling ─────────────────────────────────────────────
+    // ── NixPackageSearch ──────────────────────────────────────────────────
+    Loader {
+    id: nixSearchLoader
+    active: true   // her zaman yüklü kalsın, visibility panel içinden kontrol ediliyor
+    sourceComponent: Component {
+        NixPackageSearch {
+            panelVisible: root.nixSearchVisible
+            onPanelVisibleChanged: root.nixSearchVisible = panelVisible
+           }
+       }
+   }
+
+    // ── Toggle: launcher mtime polling ────────────────────────────────────
     Timer {
         interval: 200; running: true; repeat: true
         onTriggered: mtimePoller.running = true
@@ -72,8 +86,34 @@ ShellRoot {
         }
     }
 
+    // ── Toggle: nix search mtime polling ─────────────────────────────────
+    Timer {
+        interval: 200; running: true; repeat: true
+        onTriggered: nixMtimePoller.running = true
+    }
+
+    Process {
+        id: nixMtimePoller
+        command: ["sh", "-c", "stat -c %Y /tmp/qs-nix-toggle 2>/dev/null || echo 0"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const t = parseInt(text.trim())
+                if (t !== 0 && t !== root.lastNixMtime) {
+                    if (root.lastNixMtime !== 0)
+                        root.nixSearchVisible = !root.nixSearchVisible
+                    root.lastNixMtime = t
+                }
+            }
+        }
+    }
+
     Process {
         command: ["sh", "-c", "touch /tmp/qs-toggle"]
+        running: true
+    }
+
+    Process {
+        command: ["sh", "-c", "touch /tmp/qs-nix-toggle"]
         running: true
     }
 }

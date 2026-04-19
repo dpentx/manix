@@ -65,10 +65,12 @@ PanelWindow {
     property bool wallPanelOpen:    false
     property bool settingsMenuOpen: false
     property bool powerMenuOpen:    false
+    property bool nixSearchOpen:    false
 
     property bool anyPanelOpen: mediaPanelOpen || btPanelOpen || wifiPanelOpen
                              || volPopupOpen || wallPanelOpen
                              || settingsMenuOpen || powerMenuOpen
+                             || nixSearchOpen
 
     function closeAllPanels() {
         mediaPanelOpen    = false
@@ -78,12 +80,14 @@ PanelWindow {
         wallPanelOpen     = false
         settingsMenuOpen  = false
         powerMenuOpen     = false
+        nixSearchOpen     = false
     }
 
     // ── Güç komutları ─────────────────────────────────────────────────────
     Process { id: powerShutdown; command: ["sh", "-c", "systemctl poweroff"] }
     Process { id: powerReboot;   command: ["sh", "-c", "systemctl reboot"] }
     Process { id: powerLogout;   command: ["sh", "-c", "niri msg action quit --skip-confirmation"] }
+    Process { id: nixToggleCmd;  command: ["sh", "-c", "touch /tmp/qs-nix-toggle"] }
 
     // ── Process'ler ───────────────────────────────────────────────────────
     Process {
@@ -1343,30 +1347,38 @@ PanelWindow {
             // Ayraç
             Rectangle { width: parent.width; height: 1; color: bar.clrSurf; opacity: 0.5 }
 
-            // Yer tutucu — ileride buraya ek menü öğeleri gelecek
+            // Nix Paket Yöneticisi
             Rectangle {
                 width: parent.width; height: 36; radius: 8
-                color: moreMenuHover.containsMouse ? bar.clrSurf : "transparent"
+                color: nixMenuHover.containsMouse ? bar.clrSurf : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
-                opacity: 0.4
 
                 Row {
                     anchors { verticalCenter: parent.verticalCenter; left: parent.left; leftMargin: 10 }
                     spacing: 10
                     Text {
-                        text: "\uf013"
+                        text: "\uf48b"
                         font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
-                        color: bar.clrMuted
+                        color: bar.clrGreen
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
-                        text: "Yakında..."
+                        text: "Paket Ekle"
                         font.pixelSize: 12; font.family: "Noto Sans"
-                        color: bar.clrMuted
+                        color: bar.clrText
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
-                MouseArea { id: moreMenuHover; anchors.fill: parent; hoverEnabled: true }
+                MouseArea {
+                    id: nixMenuHover
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true
+                    onClicked: {
+                        bar.settingsMenuOpen = false
+                        bar.nixSearchOpen    = !bar.nixSearchOpen
+                        nixToggleCmd.running = false
+                        nixToggleCmd.running = true
+                    }
+                }
             }
         }
     }

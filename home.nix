@@ -20,6 +20,8 @@
     prismlauncher
     github-desktop
     papirus-icon-theme
+    pear-desktop
+    onlyoffice-desktopeditors
   ];
 
   programs.home-manager.enable = true;

@@ -1,19 +1,15 @@
 { config, pkgs, inputs, ... }:
-
-# modules/quickshell-hm.nix
-
 {
-  home.packages = [
+  home.packages = with pkgs; [
     inputs.quickshell.packages.${pkgs.stdenv.hostPlatform.system}.default
+    inter
+    material-design-icons
+    nerd-fonts.jetbrains-mono
+    python3Packages.pywal
   ];
 
-  xdg.configFile = {
-    "quickshell/shell.qml".source            = ../qs/shell.qml;
-    "quickshell/TopBar.qml".source           = ../qs/TopBar.qml;
-    "quickshell/LauncherOverlay.qml".source  = ../qs/LauncherOverlay.qml;
-    "quickshell/modules/Clock.qml".source        = ../qs/modules/Clock.qml;
-    "quickshell/modules/Workspaces.qml".source   = ../qs/modules/Workspaces.qml;
-    "quickshell/modules/StatusIcons.qml".source  = ../qs/modules/StatusIcons.qml;
- #   "quickshell/Wallhaven.qml".source = ../qs/wallhaven.qml;
+  xdg.configFile."quickshell" = {
+    source = inputs.qs-theme;
+    recursive = true;
   };
 }

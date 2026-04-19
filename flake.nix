@@ -20,6 +20,11 @@
       url = "git+https://git.outfoxxed.me/outfoxxed/quickshell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    
+    qs-theme = {
+     url = "github:tripathiji1312/quickshell";
+     flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, quickshell, ... }@inputs: {
