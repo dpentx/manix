@@ -89,7 +89,7 @@
       rebuild = "cd /home/asus/manix && git add -A && git commit -m 'update' && sudo nixos-rebuild switch --flake '.#asus'";
     };
     
-    initExtra = ''
+    initContent = ''
       # Completion
       zstyle ':completion:*' menu select
       zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'

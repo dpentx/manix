@@ -22,7 +22,7 @@
     };
     
     qs-theme = {
-     url = "github:tripathiji1312/quickshell";
+     url = "github:dpentx/qs-niri";
      flake = false;
     };
   };

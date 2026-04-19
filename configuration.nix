@@ -106,6 +106,10 @@
     awww
     tmux
     curl
+    grim
+    slurp
+    brightnessctl
+    python3Packages.pywal
   ];
 
   security.polkit.enable = true;
