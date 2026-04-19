@@ -160,12 +160,6 @@
     spawn-at-startup "awww-daemon"
     spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"
 
-    gestures {
-    hot-corners {
-        off
-       }
-    }
-
     binds {
         Mod+Return  { spawn "kitty"; }
         Mod+A       { spawn "sh" "-c" "touch /tmp/qs-toggle"; }
