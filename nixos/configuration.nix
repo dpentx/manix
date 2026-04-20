@@ -11,7 +11,7 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_zen;
-
+  
   networking.hostName = "niiha";
   networking.networkmanager.enable = true;
   networking.firewall.enable = true;
@@ -24,14 +24,6 @@
   programs.xwayland.enable = true;
  
   hardware.graphics.enable = true;
-  services.xserver.videoDrivers = [ "nvidia" ];
-  hardware.nvidia = { 
-    modesetting.enable = true;
-    nvidiaSettings = true;
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
-    open = false;
-  };
-
 
   zramSwap = {
     enable = true;
