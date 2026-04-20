@@ -107,9 +107,9 @@
         Mod+Print       { screenshot-screen; }
         Mod+Shift+Print { screenshot-window; }
 
-        XF86AudioRaiseVolume allow-when-locked=true { spawn "pamixer""--increase" "5"; }
-        XF86AudioLowerVolume allow-when-locked=true { spawn "pamixer""--decrease" "5"; }
-        XF86AudioMute        allow-when-locked=true { spawn "pamixer""--toggle-mute"; }
+        XF86AudioRaiseVolume allow-when-locked=true { spawn "pamixer" "--increase" "5"; }
+        XF86AudioLowerVolume allow-when-locked=true { spawn "pamixer" "--decrease" "5"; }
+        XF86AudioMute        allow-when-locked=true { spawn "pamixer" "--toggle-mute"; }
         XF86AudioPlay        allow-when-locked=true { spawn "playerctl" "play-pause"; }
         XF86AudioNext        allow-when-locked=true { spawn "playerctl" "next"; }
         XF86AudioPrev        allow-when-locked=true { spawn "playerctl" "previous"; }
