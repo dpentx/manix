@@ -61,7 +61,6 @@
     }
 
     environment {
-        DISPLAY ":1"
         NIXOS_OZONE_WL "1"
         QT_QPA_PLATFORM "wayland"
         MOZ_ENABLE_WAYLAND "1"
@@ -73,7 +72,7 @@
 
     binds {
         Mod+Return  { spawn "kitty"; }
-        Mod+A       { spawn "sh" "-c" "touch /tmp/qs-toggle"; }
+        Mod+D { spawn "sh" "-c" "touch /tmp/qs-launcher"; }
         Mod+Q       { close-window; }
         Mod+Shift+E { quit skip-confirmation=true; }
 

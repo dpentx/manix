@@ -32,7 +32,6 @@
       export XDG_CURRENT_DESKTOP=niri
       
       # XWayland için gerekli
-      export DISPLAY=:0
       export GDK_BACKEND=wayland,x11
       
       # DBus ve systemd

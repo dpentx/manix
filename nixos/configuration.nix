@@ -11,6 +11,7 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_zen;
+  boot.kernelParams = [ "elevator=bfq" ];
   
   networking.hostName = "niiha";
   networking.networkmanager.enable = true;
@@ -21,7 +22,6 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   services.xserver.enable = true;
-  programs.xwayland.enable = true;
  
   hardware.graphics.enable = true;
 
