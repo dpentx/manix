@@ -86,7 +86,8 @@
     tuigreet
     niri
     kitty
-    git                  # ← eklendi
+    git
+    gitFull
     dbus
     xdg-utils
     gnome-themes-extra
