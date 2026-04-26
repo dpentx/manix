@@ -6,6 +6,7 @@
     ../modules/loginm/greetd.nix
     ../modules/network/zapret.nix
     ../modules/vm/qemu.nix
+    ../modules/system/nvidia.nix
   ];
 
   boot.loader.systemd-boot.enable = true;
