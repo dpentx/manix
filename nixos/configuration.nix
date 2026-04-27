@@ -21,8 +21,6 @@
   time.timeZone = "Europe/Istanbul";
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
-  services.xserver.enable = true;
  
   hardware.graphics.enable = true;
 
@@ -62,13 +60,9 @@
     LC_TIME           = "tr_TR.UTF-8";
   };
 
-  services.xserver.xkb = {
-    layout = "tr";
-    variant = "intl";
-  };
-
   console.keyMap = "trq";
-
+  services.keyd.enable = true;
+  
   users.users.asus = {
     isNormalUser = true;
     description = "asus";

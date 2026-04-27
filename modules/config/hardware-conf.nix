@@ -11,7 +11,7 @@
   boot.kernel.sysctl = {
     "vm.dirty_ratio" = 20;
     "vm.dirty_background_ratio" = 5;
-    "vm.swappiness" = 10; # zram varken swap'a geç gitsin
+    "vm.swappiness" = 10;
   };
 
   nix.settings.auto-optimise-store = true;
@@ -23,4 +23,5 @@
 
   services.power-profiles-daemon.enable = true;
   services.upower.enable = true;
+  systemd.services.NetworkManager-wait-online.enable = false;
 }
