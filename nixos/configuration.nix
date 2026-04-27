@@ -112,8 +112,6 @@
     liberation_ttf
     fira-code
     fira-code-symbols
-    # ✅ Quickshell ikonları için nerd font (opsiyonel ama önerilir)
-    nerd-fonts.jetbrains-mono
   ];
 
   system.stateVersion = "25.11";

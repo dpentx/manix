@@ -21,7 +21,6 @@
     microsoft-edge
     prismlauncher
     github-desktop
-    papirus-icon-theme
     pear-desktop
     onlyoffice-desktopeditors
   ];
