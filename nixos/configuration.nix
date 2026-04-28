@@ -7,6 +7,7 @@
     ../modules/network/zapret.nix
     ../modules/vm/qemu.nix
     ../modules/system/nvidia.nix
+    ../modules/config/steam.nix
   ];
 
   boot.loader.systemd-boot.enable = true;
