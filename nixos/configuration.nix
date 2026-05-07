@@ -63,7 +63,8 @@
 
   console.keyMap = "trq";
   services.keyd.enable = true;
-  
+
+  nix.settings.trusted-users = [ "root" "asus" ];  
   users.users.asus = {
     isNormalUser = true;
     description = "asus";
