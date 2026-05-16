@@ -115,6 +115,11 @@
     }
 
     window-rule {
+    geometry-corner-radius 8
+    clip-to-geometry true
+    }
+
+    window-rule {
         match app-id="steam"
         default-column-width { proportion 0.8; }
     }

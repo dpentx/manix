@@ -15,6 +15,7 @@
   fileSystems."/" =
     { device = "/dev/disk/by-uuid/8c02dd0a-9ee3-4f5d-9ce9-de7ba3fb3164";
       fsType = "ext4";
+      options = [ "noatime" "errors=remount-ro" ];
     };
 
   fileSystems."/boot" =

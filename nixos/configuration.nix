@@ -25,7 +25,14 @@
  
   hardware.graphics.enable = true;
 
-  zramSwap = {
+  boot.initrd.systemd.enable = true;
+  systemd.services.dnscrypt-proxy2.serviceConfig.TimeoutStartSec = "15";
+  services.earlyoom.enable = true;
+  services.thermald.enable = true;
+  nix.settings.max-jobs = "auto";
+  nix.settings.cores = 0;
+ 
+ zramSwap = {
     enable = true;
     algorithm = "zstd";
     memoryPercent = 50;
@@ -62,7 +69,6 @@
   };
 
   console.keyMap = "trq";
-  services.keyd.enable = true;
 
   nix.settings.trusted-users = [ "root" "asus" ];  
   users.users.asus = {
