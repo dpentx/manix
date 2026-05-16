@@ -69,6 +69,7 @@
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
     spawn-at-startup "awww-daemon"
     spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"
+    spawn-at-startup "lxqt-policykit-agent"
 
     binds {
         Mod+Return  { spawn "kitty"; }

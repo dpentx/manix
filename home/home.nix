@@ -23,6 +23,11 @@
     github-desktop
     pear-desktop
     onlyoffice-desktopeditors
+    swaylock
+    wl-clipboard
+    libnotify
+    wf-recorder
+    lxqt.lxqt-policykit
   ];
 
   programs.home-manager.enable = true;
