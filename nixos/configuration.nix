@@ -103,6 +103,10 @@
     wlogout
   ];
 
+  environment.sessionVariables = {
+  PATH = [ "${pkgs.gitFull}/libexec/git-core" ];
+  };
+
   security.polkit.enable = true;
 
   services.gnome.gnome-keyring.enable = true;
