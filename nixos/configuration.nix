@@ -10,8 +10,17 @@
     ../modules/config/steam.nix
   ];
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.limine = {
+   enable = true;
+    style.wallpapers = [
+    (pkgs.fetchurl {
+      url = "https://w.wallhaven.cc/full/p2/wallhaven-p2rmoe.jpg";
+      sha256 = "0s1linzp7y3faa9m5zbmzidhibqpv8xmbjp9sbify2qh2w4zkrva";
+     })
+   ];
+  };
+  
+boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_zen;
   boot.kernelParams = [ "elevator=bfq" ];
   
