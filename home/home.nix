@@ -28,6 +28,7 @@
     libnotify
     wf-recorder
     lxqt.lxqt-policykit
+    neovim
   ];
 
   programs.home-manager.enable = true;

@@ -20,7 +20,7 @@
    ];
   };
   
-boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_zen;
   boot.kernelParams = [ "elevator=bfq" ];
   
