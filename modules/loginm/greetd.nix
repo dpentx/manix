@@ -6,42 +6,18 @@
     settings = {
       default_session = {
         user = "asus";
-        command = ''
-          ${pkgs.tuigreet}/bin/tuigreet \
-            --time \
-            --remember \
-            --cmd niri-session
-        '';
+        command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --cmd niri-session";
       };
     };
   };
 
-  environment.etc."greetd/niri-session" = {
-    text = ''
-      #!/usr/bin/env bash
-      
-      # Home Manager variables
-      [ -f "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh" ] && \
-        . "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
-      
-      # Wayland + XWayland env vars
-      export NIXOS_OZONE_WL=1
-      export MOZ_ENABLE_WAYLAND=1
-      export QT_QPA_PLATFORM=wayland
-      export XDG_SESSION_TYPE=wayland
-      export XDG_CURRENT_DESKTOP=niri
-      
-      # XWayland için gerekli
-      export GDK_BACKEND=wayland,x11
-      
-      # DBus ve systemd
-      systemctl --user import-environment PATH DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
-      dbus-update-activation-environment --systemd --all
-      
-      exec niri-session
-    '';
-    mode = "0755";
-  };
+  # --remember tuigreet, /var/cache/tuigreet'e yazmak zorunda. Bu dizin normalde
+  # otomatik oluşan "greeter" kullanıcısına ait oluyor; ama default_session.user
+  # "asus" olduğu için "asus" o dizine yazamıyor ve tuigreet başlarken çöküyor.
+  # (bkz. NixOS/nixpkgs#248323)
+  systemd.tmpfiles.rules = [
+    "d /var/cache/tuigreet 0755 asus asus -"
+  ];
 
   security.pam.services.greetd = {};
 }

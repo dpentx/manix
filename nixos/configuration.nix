@@ -94,6 +94,19 @@
 
   programs.niri.enable = true;
 
+  # NOT: programs.swaylock diye bir NixOS SİSTEM seçeneği yok, o Home Manager'a ait
+  # (home.nix'te programs.swaylock.enable ile kullanılır). hyprlock'a geçtiysen
+  # onun için de aynı sebeple PAM servis dosyası gerekiyor, yoksa doğru şifreyi
+  # girsen bile "invalid credentials" hatası alırsın:
+  security.pam.services.hyprlock = {};
+
+  # Nautilus'ta çöp kutusu, ağ paylaşımı bağlama ve harici disk otomatik bağlama
+  # için gvfs gerekli; şu anki config'de eksikti.
+  services.gvfs.enable = true;
+
+  # SSD'lerde periyodik TRIM.
+  services.fstrim.enable = true;
+
   environment.systemPackages = with pkgs; [
     tuigreet
     niri

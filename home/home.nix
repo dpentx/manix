@@ -23,8 +23,10 @@
     github-desktop
     pear-desktop
     onlyoffice-desktopeditors
-    swaylock
     wl-clipboard
+    cliphist
+    swayidle
+    hyprlock
     libnotify
     wf-recorder
     lxqt.lxqt-policykit

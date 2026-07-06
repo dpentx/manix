@@ -9,7 +9,9 @@
     '';
    };
 
-  networking.networkmanager.dns = "default";
+  # "default" NetworkManager'ın resolv.conf'u DHCP DNS'iyle ezmesine izin veriyordu,
+  # bu yüzden her boot'ta elle düzeltmen gerekiyordu. "none" ile NM artık dokunmuyor.
+  networking.networkmanager.dns = "none";
 
   services.dnscrypt-proxy = {
     enable = true;
