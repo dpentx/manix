@@ -3,11 +3,12 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../modules/loginm/greetd.nix
-    ../modules/network/zapret.nix
+    ../modules/system/loginm/greetd.nix
+    ../modules/system/network/zapret.nix
     ../modules/vm/qemu.nix
     ../modules/system/nvidia.nix
     ../modules/config/steam.nix
+    ../modules/system/systemd/awww-daemon.nix
   ];
 
   boot.loader.limine = {
