@@ -74,7 +74,7 @@
     spawn-at-startup "lxqt-policykit-agent"
     // Son uygulanan duvar kağıdını (mpvpaper video ya da awww resim, hangisiyse)
     // doğru araçla geri yükler. awww-daemon'ın hazır olmasını kendi içinde bekler.
-    spawn-at-startup "sh" "-c" "~/.config/quickshell/scripts/restore-wallpaper.sh"
+    spawn-at-startup "sh" "-c" "~/.config/quickshell-local/scripts/restore-wallpaper.sh"
 
     binds {
         Mod+Return  { spawn "kitty"; }
@@ -140,27 +140,4 @@
         default-column-width { proportion 0.5; }
     }
   '';
-
-  # awww-daemon'ı niri'nin tek seferlik spawn-at-startup'ı yerine systemd user
-  # servisi olarak yönetiyoruz: daemon herhangi bir sebeple (örn. çıkış
-  # yapılmış bir Wayland output, geçici bir hata) çökerse otomatik olarak
-  # yeniden başlar; niri'nin spawn-at-startup'ında bu yoktu.
-  #
-  # NOT: ExecStart'ta düz "awww-daemon" kullanıyoruz (PATH üzerinden bulunur).
-  # Eğer servis "command not found" ile patlarsa, `which awww-daemon` çıktısını
-  # ExecStart'a tam yol olarak (örn. "${pkgs.awww}/bin/awww-daemon", eğer paket
-  # nixpkgs/flake'te "awww" adıyla mevcutsa) yazman yeterli.
-  systemd.user.services.awww-daemon = {
-    Unit = {
-      Description = "awww animated wallpaper daemon";
-      After = [ "graphical-session.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      ExecStart = "awww-daemon";
-      Restart = "on-failure";
-      RestartSec = 2;
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
 }

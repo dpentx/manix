@@ -3,12 +3,12 @@
 {
   systemd.user.services.awww-daemon = {
     Unit = {
-      Description = "awww animated wallpaper daemon";
+      Description = "awww wallpaper daemon";
       After = [ "graphical-session.target" ];
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${pkgs.awww}/bin/awww-daemon";
+      ExecStart = "/run/current-system/sw/bin/awww-daemon";
       Restart = "on-failure";
       RestartSec = 2;
     };

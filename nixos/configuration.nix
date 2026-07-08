@@ -8,7 +8,6 @@
     ../modules/vm/qemu.nix
     ../modules/system/nvidia.nix
     ../modules/config/steam.nix
-    ../modules/system/systemd/awww-daemon.nix
   ];
 
   boot.loader.limine = {

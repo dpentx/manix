@@ -35,6 +35,11 @@
 
   programs.home-manager.enable = true;
 
+#  home.file.".config/quickshell-local/scripts/restore-wallpaper.sh" = {
+#    source = ../modules/niri/scripts/restore-wallpaper.sh;
+#    executable = true;
+#  };
+
   services.gnome-keyring = {
     enable = true;
     components = [ "pkcs11" "secrets" "ssh" ];
