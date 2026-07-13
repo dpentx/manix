@@ -67,13 +67,9 @@
     }
 
     spawn-at-startup "systemctl" "--user" "import-environment" "DISPLAY" "WAYLAND_DISPLAY" "XDG_CURRENT_DESKTOP"
-    // awww-daemon artık systemd user servisi (bkz. systemd.user.services.awww-daemon
-    // aşağıda) tarafından başlatılıp crash durumunda otomatik yeniden başlatılıyor;
-    // burada tekrar spawn edilirse "socket already in use" hatasıyla çakışır.
     spawn-at-startup "sh" "-c" "pgrep -x quickshell || quickshell"
     spawn-at-startup "lxqt-policykit-agent"
-    // Son uygulanan duvar kağıdını (mpvpaper video ya da awww resim, hangisiyse)
-    // doğru araçla geri yükler. awww-daemon'ın hazır olmasını kendi içinde bekler.
+    spawn-at-startup "sh" "-c" "pgrep -x awww-daemon || awww-daemon &"
     spawn-at-startup "sh" "-c" "~/.config/quickshell-local/scripts/restore-wallpaper.sh"
 
     binds {

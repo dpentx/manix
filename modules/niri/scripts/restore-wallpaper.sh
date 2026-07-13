@@ -40,7 +40,7 @@ if [[ "$CMD" == mpvpaper\ * ]]; then
     [ -f "$PID_FILE" ] && kill -9 "$(cat "$PID_FILE")" 2>/dev/null
     pkill -x mpvpaper 2>/dev/null
     sleep 0.3
-    setsid nohup $CMD >/tmp/mpvpaper.log 2>&1 </dev/null &
+    setsid nohup bash -c "$CMD" >/tmp/mpvpaper.log 2>&1 </dev/null &
     NEW_PID=$!
     echo $NEW_PID > "$PID_FILE"
     echo "mpvpaper başlatıldı, pid=$NEW_PID"
