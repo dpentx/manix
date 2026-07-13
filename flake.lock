@@ -39,11 +39,11 @@
     "qs-theme": {
       "flake": false,
       "locked": {
-        "lastModified": 1783616357,
-        "narHash": "sha256-Akjhtxht2/2w9cQGPQCDp9rQeOsljQMy57BzoQOsQWA=",
+        "lastModified": 1783955942,
+        "narHash": "sha256-jqjoJRt7sq2bUNqMV+qWeBu+0+3vYopgd9QfC1qgaBY=",
         "owner": "dpentx",
         "repo": "qs-niri",
-        "rev": "112331c7d4c44665a62cb4935e8e8d3fe0788772",
+        "rev": "25b056d8228d07e60d1825838c971a462a879cf3",
         "type": "github"
       },
       "original": {

@@ -31,6 +31,7 @@
     wf-recorder
     lxqt.lxqt-policykit
     neovim
+    ffmpeg
   ];
 
   programs.home-manager.enable = true;
