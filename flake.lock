@@ -39,11 +39,11 @@
     "qs-theme": {
       "flake": false,
       "locked": {
-        "lastModified": 1783955942,
-        "narHash": "sha256-jqjoJRt7sq2bUNqMV+qWeBu+0+3vYopgd9QfC1qgaBY=",
+        "lastModified": 1784099675,
+        "narHash": "sha256-JW61YNyxnv3XT/C636eWti3IqT0fTLJJ+jX08GG4G3Q=",
         "owner": "dpentx",
         "repo": "qs-niri",
-        "rev": "25b056d8228d07e60d1825838c971a462a879cf3",
+        "rev": "c3d62f68fc3f43b2ce882f4f2ac68cddcdf07ff6",
         "type": "github"
       },
       "original": {
@@ -59,11 +59,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1782811879,
-        "narHash": "sha256-7YAUrV8YoDFnvOtFAGzdMVgNh25h7nOg3PxjRmLAHaE=",
+        "lastModified": 1783673918,
+        "narHash": "sha256-cFG5vnmjJcZRVCSUaqQLOdwkX6iqF6bY8IvvmBSGSRs=",
         "ref": "refs/heads/master",
-        "rev": "1661ef100a431a470ed2c42e6d06539b77edf826",
-        "revCount": 825,
+        "rev": "4df562dfb2475a9057f0f33a8db75808efad8670",
+        "revCount": 830,
         "type": "git",
         "url": "https://git.outfoxxed.me/outfoxxed/quickshell"
       },

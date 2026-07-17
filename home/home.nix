@@ -32,6 +32,7 @@
     lxqt.lxqt-policykit
     neovim
     ffmpeg
+    localsend
   ];
 
   programs.home-manager.enable = true;
@@ -39,6 +40,11 @@
   home.file.".config/quickshell-local/scripts/restore-wallpaper.sh" = {
     source = ../modules/niri/scripts/restore-wallpaper.sh;
     executable = true;
+  };
+
+  home.file.".config/quickshell-local/scripts/gsr-overlay" = {
+    source = ../modules/niri/scripts/gsr-overlay;
+    recursive = true;
   };
 
   services.gnome-keyring = {

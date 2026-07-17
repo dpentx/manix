@@ -50,6 +50,27 @@
             top 0
             bottom 0
         }
+
+        background-color "transparent"
+    }
+
+    overview {
+        backdrop-color "#1e1e2e"
+
+        workspace-shadow {
+            off
+        }
+    }
+
+    // Duvar kağıdını backdrop'a sabitle, workspace'lerle kaymasın/küçülmesin
+    layer-rule {
+        match namespace="^awww-daemon$"
+        place-within-backdrop true
+    }
+
+    layer-rule {
+        match namespace="^mpvpaper$"
+        place-within-backdrop true
     }
 
     prefer-no-csd
@@ -71,10 +92,21 @@
     spawn-at-startup "lxqt-policykit-agent"
     spawn-at-startup "sh" "-c" "pgrep -x awww-daemon || awww-daemon &"
     spawn-at-startup "sh" "-c" "~/.config/quickshell-local/scripts/restore-wallpaper.sh"
+    spawn-at-startup "sh" "-c" "wl-paste --type text --watch cliphist store"
+    spawn-at-startup "sh" "-c" "wl-paste --type image --watch cliphist store"
+
+    // Sıcak köşeyi (fareyle sol üste gidince tetiklenen overview) kapat —
+    // yerine bilinçli bir tetikleyici olan Ctrl+Sağ tık kullanılacak
+    gestures {
+        hot-corners {
+            off
+        }
+    }
 
     binds {
         Mod+Return  { spawn "kitty"; }
         Mod+D { spawn "sh" "-c" "touch /tmp/qs-launcher"; }
+        Mod+S { spawn "sh" "-c" "touch /tmp/qs-systools"; }
         Mod+Q       { close-window; }
         Mod+Shift+E { quit skip-confirmation=true; }
 
@@ -107,6 +139,10 @@
         Print           { screenshot; }
         Mod+Print       { screenshot-screen; }
         Mod+Shift+Print { screenshot-window; }
+        Ctrl+Shift+Print { spawn "sh" "-c" "touch /tmp/qs-record"; }
+
+        // Sıcak köşe yerine bilinçli tetikleyici: Ctrl basılıyken sağ tık
+        Ctrl+MouseRight { toggle-overview; }
 
         XF86AudioRaiseVolume allow-when-locked=true { spawn "pamixer" "--increase" "5"; }
         XF86AudioLowerVolume allow-when-locked=true { spawn "pamixer" "--decrease" "5"; }

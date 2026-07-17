@@ -22,7 +22,7 @@
   
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_zen;
-  boot.kernelParams = [ "elevator=bfq" ];
+  boot.kernelParams = [ "elevator=bfq" "pcie_aspm=off" ];
   
   networking.hostName = "niiha";
   networking.networkmanager.enable = true;
@@ -129,6 +129,22 @@
     brightnessctl
     python3Packages.pywal
     wlogout
+
+    # nixpkgs'teki gpu-screen-recorder paketi NVIDIA'nın NVENC/encode
+    # kütüphanelerini wrapper'ına dahil etmiyor (bilinen bir NixOS
+    # sorunu, bkz. wiki.nixos.org/wiki/Gpu-screen-recorder), bu yüzden
+    # "vaInitialize failed" / encoder bulunamadı hatası alınıyordu.
+    # LD_LIBRARY_PATH'e nvidia_x11 ve libglvnd'yi ekleyen bir wrapper
+    # ile aynı isimde (gpu-screen-recorder) bir binary sağlıyoruz; bu
+    # yüzden home.nix'teki home.packages listesinden düz
+    # "gpu-screen-recorder" paketini KALDIRMAN gerekiyor, yoksa PATH'te
+    # hangisinin öne geleceği belirsiz olur.
+    (pkgs.runCommand "gpu-screen-recorder-wrapped" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+      mkdir -p $out/bin
+      makeWrapper ${pkgs.gpu-screen-recorder}/bin/gpu-screen-recorder $out/bin/gpu-screen-recorder \
+        --prefix LD_LIBRARY_PATH : ${pkgs.libglvnd}/lib \
+        --prefix LD_LIBRARY_PATH : ${config.boot.kernelPackages.nvidia_x11}/lib
+    '')
   ];
 
   environment.sessionVariables = {
@@ -136,6 +152,19 @@
   };
 
   security.polkit.enable = true;
+
+  # gpu-screen-recorder'ın KMS backend'i (gsr-kms-server) ekran içeriğini
+  # yakalayabilmek için cap_sys_admin istiyor. /nix/store salt-okunur
+  # olduğundan store'daki binary'ye doğrudan setcap yapılamıyor;
+  # security.wrappers /run/wrappers/bin altında capability'li bir
+  # kopya oluşturuyor, PATH'te store'dakinden önce geldiği için
+  # gpu-screen-recorder onu buluyor.
+  security.wrappers.gsr-kms-server = {
+    owner = "root";
+    group = "root";
+    capabilities = "cap_sys_admin+ep";
+    source = "${pkgs.gpu-screen-recorder}/bin/gsr-kms-server";
+  };
 
   services.gnome.gnome-keyring.enable = true;
 
