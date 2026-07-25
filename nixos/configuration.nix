@@ -35,7 +35,6 @@
   hardware.graphics.enable = true;
 
   boot.initrd.systemd.enable = true;
-  systemd.services.dnscrypt-proxy2.serviceConfig.TimeoutStartSec = "15";
   services.earlyoom.enable = true;
   services.thermald.enable = true;
   nix.settings.max-jobs = "auto";
