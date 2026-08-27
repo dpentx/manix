@@ -14,8 +14,8 @@
   boot.extraModulePackages = [ ];
 
   fileSystems."/" =
-    { device = "UUID=3b65399b-7f4c-45b8-a33c-105b12d79ddf";
-      fsType = "bcachefs";
+    { device = "/dev/disk/by-uuid/1a833614-976d-48b4-9ab5-90ac25d6f9e5";
+      fsType = "btrfs";
     };
 
   swapDevices = [ ];

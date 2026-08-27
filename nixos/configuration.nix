@@ -1,143 +1,167 @@
-# Edit this configuration file to define what should be installed on
-# your system. Help is available in the configuration.nix(5) man page, on
-# https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
-
-{ config, lib, pkgs, inputs, ... }:
+{ config, pkgs, ... }:
 
 {
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-       inputs.niri.nixosModules.niri
-       inputs.inir.nixosModules.inir
-    ];
+  imports = [
+    ./hardware-configuration.nix
+    ../modules/system/loginm/greetd.nix
+    ../modules/system/network/zapret.nix
+    ../modules/vm/qemu.nix
+    ../modules/system/nvidia.nix
+    ../modules/config/steam.nix
+  ];
 
-  # Use the systemd-boot EFI boot loader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.supportedFilesystems = [ "bcachefs" ];
-  
-  # Use latest kernel.
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-
-  networking.hostName = "loluet"; # Define your hostname.
-
-  # Configure network connections interactively with nmcli or nmtui.
-  networking.networkmanager.enable = true;
-
-  # Set your time zone.
-  # time.timeZone = "Europe/Amsterdam";
-
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
-
-  # Select internationalisation properties.
-   i18n.defaultLocale = "tr_TR.UTF-8";
-   console = {
-     font = "Lat2-Terminus16";
-     keyMap = "tr";
-  #   useXkbConfig = true; # use xkb.options in tty.
-   };
-
-  # Enable the X11 windowing system.
-  # services.xserver.enable = true;
-
-
-  # Enable the GNOME Desktop Environment.
-  services.displayManager.plasma-login-manager.enable = true;
-  services.desktopManager.plasma6.enable = true;
-
-  programs.niri = {
-    enable = true;
-  };
-
-  programs.inir = {
-    enable = true;
-    service.compositor = "niri";
-    extraPackages = [ config.programs.niri.package ];
-  };
-
-  # Configure keymap in X11
-  # services.xserver.xkb.layout = "us";
-  # services.xserver.xkb.options = "eurosign:e,caps:escape";
-
-  # Enable CUPS to print documents.
-  # services.printing.enable = true;
-
-  # Enable sound.
-  # services.pulseaudio.enable = true;
-  # OR
-   services.pipewire = {
-     enable = true;
-     pulse.enable = true;
-   };
-
-  # Enable touchpad support (enabled default in most desktopManager).
-  #  services.libinput.enable = true;
-
-  # Define a user account. Don't forget to set a password with ‘passwd’.
-   users.users.asus = {
-     isNormalUser = true;
-     extraGroups = [ "wheel" ]; # Enable ‘sudo’ for the user.
-  #   packages = with pkgs; [
-  #     tree
-  #   ];
-   };
-
-  # programs.firefox.enable = true;
-
-  # List packages installed in system profile.
-  # You can use https://search.nixos.org/ to find more packages (and options).
-   environment.systemPackages = with pkgs; [
-     vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-     wget
-     bcachefs-tools
-     firefox
+  boot.loader.limine = {
+   enable = true;
+    style.wallpapers = [
+    (pkgs.fetchurl {
+      url = "https://w.wallhaven.cc/full/p2/wallhaven-p2rmoe.jpg";
+      sha256 = "0s1linzp7y3faa9m5zbmzidhibqpv8xmbjp9sbify2qh2w4zkrva";
+     })
    ];
 
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
+   extraConfig = ''
+    /Manjaro Linux
+        protocol: efi_chainload
+        image_path: boot():/EFI/Manjaro/grubx64.efi
+  '';
 
-  # List services that you want to enable:
+  };
+  
+  boot.loader.efi.canTouchEfiVariables = true;
+  boot.kernelPackages = pkgs.linuxPackages_zen;
+  boot.kernelParams = [ "elevator=bfq" "pcie_aspm=off" ];
+  
+  networking.hostName = "niiha";
+  networking.networkmanager.enable = true;
+  networking.firewall.enable = true;
 
-  # Enable the OpenSSH daemon.
-  # services.openssh.enable = true;
+  time.timeZone = "Europe/Istanbul";
 
-  # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
-  # networking.firewall.allowedUDPPorts = [ ... ];
-  # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+ 
+  hardware.graphics.enable = true;
 
-  # Copy the NixOS configuration file and link it from the resulting system
-  # (/run/current-system/configuration.nix). This is useful in case you
-  # accidentally delete configuration.nix.
-  # system.copySystemConfiguration = true;
+  boot.initrd.systemd.enable = true;
+  services.earlyoom.enable = true;
+  services.thermald.enable = true;
+  nix.settings.max-jobs = "auto";
+  nix.settings.cores = 0;
+ 
+ zramSwap = {
+    enable = true;
+    algorithm = "zstd";
+    memoryPercent = 50;
+   };
 
-  # This option defines the first version of NixOS you have installed on this particular machine,
-  # and is used to maintain compatibility with application data (e.g. databases) created on older NixOS versions.
-  #
-  # Most users should NEVER change this value after the initial install, for any reason,
-  # even if you've upgraded your system to a new NixOS release.
-  #
-  # This value does NOT affect the Nixpkgs version your packages and OS are pulled from,
-  # so changing it will NOT upgrade your system - see https://nixos.org/manual/nixos/stable/#sec-upgrading for how
-  # to actually do that.
-  #
-  # This value being lower than the current NixOS release does NOT mean your system is
-  # out of date, out of support, or vulnerable.
-  #
-  # Do NOT change this value unless you have manually inspected all the changes it would make to your configuration,
-  # and migrated your data accordingly.
-  #
-  # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
-  system.stateVersion = "25.11"; # Did you read the comment?
+  services.dbus.enable = true;
 
+  xdg.portal = {
+    enable = true;
+    extraPortals = with pkgs; [ xdg-desktop-portal-gtk ];
+    config.common.default = "gtk";
+  };
+
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    jack.enable = true;
+  };
+
+  i18n.defaultLocale = "tr_TR.UTF-8";
+  i18n.extraLocaleSettings = {
+    LC_ADDRESS        = "tr_TR.UTF-8";
+    LC_IDENTIFICATION = "tr_TR.UTF-8";
+    LC_MEASUREMENT    = "tr_TR.UTF-8";
+    LC_MONETARY       = "tr_TR.UTF-8";
+    LC_NAME           = "tr_TR.UTF-8";
+    LC_NUMERIC        = "tr_TR.UTF-8";
+    LC_PAPER          = "tr_TR.UTF-8";
+    LC_TELEPHONE      = "tr_TR.UTF-8";
+    LC_TIME           = "tr_TR.UTF-8";
+  };
+
+  console.keyMap = "trq";
+
+  nix.settings.trusted-users = [ "root" "asus" ];  
+  users.users.asus = {
+    isNormalUser = true;
+    description = "asus";
+    shell = pkgs.zsh;
+    extraGroups = [ "networkmanager" "wheel" "audio" "video" ];
+    packages = [];
+  };
+
+  programs.zsh.enable = true;
+
+  nixpkgs.config.allowUnfree = true;
+
+  programs.niri.enable = true;
+
+  security.pam.services.hyprlock = {};
+
+  services.gvfs.enable = true;
+
+  services.fstrim.enable = true;
+
+  environment.systemPackages = with pkgs; [
+    tuigreet
+    niri
+    kitty
+    git
+    gitFull
+    dbus
+    xdg-utils
+    gnome-themes-extra
+    adwaita-icon-theme
+    xwayland-satellite
+    wirelesstools
+    playerctl
+    pamixer
+    awww
+    tmux
+    curl
+    grim
+    slurp
+    brightnessctl
+    python3Packages.pywal
+    wlogout
+    gh
+    ffmpeg
+
+    (pkgs.runCommand "gpu-screen-recorder-wrapped" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+      mkdir -p $out/bin
+      makeWrapper ${pkgs.gpu-screen-recorder}/bin/gpu-screen-recorder $out/bin/gpu-screen-recorder \
+        --prefix LD_LIBRARY_PATH : ${pkgs.libglvnd}/lib \
+        --prefix LD_LIBRARY_PATH : ${config.boot.kernelPackages.nvidia_x11}/lib
+    '')
+  ];
+
+  environment.sessionVariables = {
+  PATH = [ "${pkgs.gitFull}/libexec/git-core" ];
+  };
+
+  security.polkit.enable = true;
+
+  security.wrappers.gsr-kms-server = {
+    owner = "root";
+    group = "root";
+    capabilities = "cap_sys_admin+ep";
+    source = "${pkgs.gpu-screen-recorder}/bin/gsr-kms-server";
+  };
+
+  services.gnome.gnome-keyring.enable = true;
+
+  fonts.packages = with pkgs; [
+    noto-fonts
+    noto-fonts-cjk-sans
+    noto-fonts-color-emoji
+    liberation_ttf
+    fira-code
+    fira-code-symbols
+  ];
+
+  system.stateVersion = "25.11";
 }
-

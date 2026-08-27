@@ -4,6 +4,7 @@
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = false;
+    input.General.ClassicBondedOnly = false;
   };
 
   services.irqbalance.enable = true;
