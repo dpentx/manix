@@ -1,0 +1,60 @@
+name: Manjaro install script
+
+on:
+  push:
+    paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml]
+  pull_request:
+    paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml]
+  workflow_dispatch:
+
+jobs:
+  # Runs the greeter part of the script on a real Manjaro image, then starts the exact command it
+  # wrote into /etc/greetd/config.toml as the `greeter` user inside headless cage and screenshots it.
+  # Not covered: greetd itself (no systemd/logind in a container), pacman+Nix+home-manager steps.
+  greeter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: manjarolinux/base
+    steps:
+      - name: Packages
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm git base-devel sudo grim mesa cage greetd
+      - uses: actions/checkout@v4
+        with: { path: manix }
+      - name: Builder user, AUR helper, systemctl shim
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          # no systemd in the container: the script's `systemctl enable/disable` become no-ops
+          printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/systemctl && chmod +x /usr/local/bin/systemctl
+          chown -R builder: manix
+          sudo -u builder bash -c 'cd ~ && git clone -q https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si --noconfirm'
+      - name: Run the script (greeter part)
+        run: sudo -u builder bash -c 'cd manix && ./scripts/manjaro-install.sh --greetd-only'
+      - name: Check what it installed
+        run: |
+          test -x /usr/bin/quickshell
+          test -f /opt/qs-niri/greeter.qml
+          cat /etc/greetd/config.toml
+      - name: Start the greeter as the greeter user (headless)
+        run: |
+          id greeter >/dev/null 2>&1 || useradd -r -m greeter
+          install -d -m 700 -o greeter /tmp/xdg
+          cmd=$(sed -n 's/^command = "\(.*\)"$/\1/p' /etc/greetd/config.toml)
+          echo "command: $cmd"
+          mkdir -p out && chmod 777 out
+          sudo -u greeter env XDG_RUNTIME_DIR=/tmp/xdg WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 \
+            WLR_RENDERER=gles2 LIBGL_ALWAYS_SOFTWARE=1 sh -c "$cmd" > out/greeter.log 2>&1 &
+          sleep 25
+          # still running = it did not die on startup
+          pgrep -u greeter -f 'quickshell -p /opt/qs-niri/greeter.qml'
+          sudo -u greeter env XDG_RUNTIME_DIR=/tmp/xdg WAYLAND_DISPLAY=wayland-0 grim out/greeter.png
+          test "$(stat -c %s out/greeter.png)" -gt 20000
+          ! grep -Ei 'not found|no such file|cannot|could not load|ReferenceError|TypeError' out/greeter.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: greeter
+          path: out/

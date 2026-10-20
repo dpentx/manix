@@ -21,6 +21,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     
+    # GL wrapper for nix-built graphical apps on non-NixOS hosts (Manjaro)
+    nixgl = {
+      url = "github:nix-community/nixGL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     qs-theme = {
      url = "github:dpentx/qs-niri";
      flake = false;
@@ -28,6 +34,17 @@
   };
 
   outputs = { self, nixpkgs, home-manager, quickshell, ... }@inputs: {
+    # Manjaro (or any non-NixOS distro) with Nix + standalone home-manager:
+    #   home-manager switch --flake .#manjaro
+    homeConfigurations.manjaro = home-manager.lib.homeManagerConfiguration {
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        config.allowUnfree = true;
+      };
+      extraSpecialArgs = { inherit inputs; };
+      modules = [ ./home/manjaro.nix ];
+    };
+
     nixosConfigurations.asus = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       specialArgs = { inherit inputs; };
