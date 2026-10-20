@@ -5,8 +5,9 @@
     input {
         keyboard {
             xkb {
-                layout "tr"
-                variant "intl"
+                // Turkish Q (first, default) and Turkish F; Mod+Space switches, the bar shows TR for both
+                layout "tr,tr"
+                variant "intl,f"
             }
             repeat-delay 300
             repeat-rate 50
@@ -107,6 +108,7 @@
         Mod+Return  { spawn "kitty"; }
         Mod+D { spawn "sh" "-c" "touch /tmp/qs-launcher"; }
         Mod+S { spawn "sh" "-c" "touch /tmp/qs-systools"; }
+        Mod+Space   { switch-layout "next"; }
         Mod+Q       { close-window; }
         Mod+Shift+E { quit skip-confirmation=true; }
 
