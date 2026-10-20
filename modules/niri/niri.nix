@@ -1,4 +1,4 @@
-{ config, inputs, pkgs, ... }:
+{ config, inputs, pkgs, lib, ... }:
 
 {
   xdg.configFile."niri/config.kdl".text = ''
@@ -173,5 +173,15 @@
         match app-id="org.gnome.Nautilus"
         default-column-width { proportion 0.5; }
     }
+
+    // Keyboard layouts chosen in qs-niri's Settings > Shell > Keyboard. Last on purpose: it overrides the
+    // xkb block above. Absolute path, since config.kdl itself is a symlink into the Nix store.
+    include "${config.xdg.configHome}/niri/qs-keyboard.kdl"
+  '';
+
+  # The include must exist or niri rejects the config; the shell rewrites the file, never replace it here.
+  home.activation.qsKeyboardKdl = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    f="${config.xdg.configHome}/niri/qs-keyboard.kdl"
+    [ -e "$f" ] || { mkdir -p "$(dirname "$f")"; echo '// qs-niri keyboard layouts (Settings > Shell > Keyboard)' > "$f"; }
   '';
 }
