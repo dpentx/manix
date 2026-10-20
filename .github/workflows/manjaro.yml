@@ -35,7 +35,7 @@ jobs:
           set -o pipefail
           {
           set -x
-            useradd -m builder
+            id builder || useradd -m builder
             echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
             # no systemd in the container: the script's `systemctl enable/disable` become no-ops
             printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/systemctl && chmod +x /usr/local/bin/systemctl
