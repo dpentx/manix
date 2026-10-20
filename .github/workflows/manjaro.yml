@@ -16,11 +16,15 @@ jobs:
     timeout-minutes: 45
     container:
       image: manjarolinux/base
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Packages
         run: |
           pacman -Syu --noconfirm
           pacman -S --needed --noconfirm git base-devel sudo grim mesa cage greetd
+          mkdir -p out && chmod 777 out
       - uses: actions/checkout@v4
         with: { path: manix }
       - name: Builder user, AUR helper, systemctl shim
@@ -30,9 +34,9 @@ jobs:
           # no systemd in the container: the script's `systemctl enable/disable` become no-ops
           printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/systemctl && chmod +x /usr/local/bin/systemctl
           chown -R builder: manix
-          sudo -u builder bash -c 'cd ~ && git clone -q https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si --noconfirm'
+          sudo -u builder bash -c 'cd ~ && git clone -q https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si --noconfirm' 2>&1 | tee out/yay.log
       - name: Run the script (greeter part)
-        run: sudo -u builder bash -c 'cd manix && ./scripts/manjaro-install.sh --greetd-only'
+        run: sudo -u builder bash -c 'cd manix && ./scripts/manjaro-install.sh --greetd-only' 2>&1 | tee out/script.log
       - name: Check what it installed
         run: |
           test -x /usr/bin/quickshell
@@ -44,7 +48,6 @@ jobs:
           install -d -m 700 -o greeter /tmp/xdg
           cmd=$(sed -n 's/^command = "\(.*\)"$/\1/p' /etc/greetd/config.toml)
           echo "command: $cmd"
-          mkdir -p out && chmod 777 out
           sudo -u greeter env XDG_RUNTIME_DIR=/tmp/xdg WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 \
             WLR_RENDERER=gles2 LIBGL_ALWAYS_SOFTWARE=1 sh -c "$cmd" > out/greeter.log 2>&1 &
           sleep 25
