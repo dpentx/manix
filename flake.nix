@@ -27,6 +27,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # The shell as a flake: its Home Manager module installs the runtime tools (matugen, qrencode, ...)
+    # and writes ~/.config/quickshell. Used by the Manjaro host (see modules/niri/qs-niri-hm.nix).
+    qs-niri = {
+      url = "github:dpentx/qs-niri/oneui8-adapt";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     qs-theme = {
      url = "github:dpentx/qs-niri";
      flake = false;

@@ -11,6 +11,21 @@ permissions:
   contents: write
 
 jobs:
+  # Evaluates the Manjaro home-manager config (no build): catches option/typo errors in the Nix side.
+  nix-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+      - name: Evaluate homeConfigurations.manjaro
+        run: |
+          git add -N home/manjaro.nix 2>/dev/null || true
+          nix eval --raw .#homeConfigurations.manjaro.activationPackage.drvPath
+
   # Runs the greeter part of the script on a real Manjaro image, then starts the exact command it
   # wrote into /etc/greetd/config.toml as the `greeter` user inside headless cage and screenshots it.
   # Not covered: greetd itself (no systemd/logind in a container), pacman+Nix+home-manager steps.

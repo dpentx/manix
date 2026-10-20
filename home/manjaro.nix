@@ -10,7 +10,7 @@
   home.enableNixpkgsReleaseCheck = false;
 
   imports = [
-    ../modules/niri/quickshell-hm.nix
+    ../modules/niri/qs-niri-hm.nix
     ../modules/config/shell.nix
     ../modules/config/terminal.nix
     ../modules/niri/niri.nix
