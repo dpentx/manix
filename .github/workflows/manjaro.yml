@@ -7,6 +7,9 @@ on:
     paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # Runs the greeter part of the script on a real Manjaro image, then starts the exact command it
   # wrote into /etc/greetd/config.toml as the `greeter` user inside headless cage and screenshots it.
@@ -65,3 +68,12 @@ jobs:
         with:
           name: greeter
           path: out/
+      # Logs and screenshot also go to an orphan branch so they can be read without downloading artifacts.
+      - name: Publish logs to ci-logs
+        if: always()
+        run: |
+          git config --global --add safe.directory "$PWD"
+          d=$(mktemp -d) && cp -r out/. "$d/" && echo "commit: $GITHUB_SHA" > "$d/meta.txt"
+          cd "$d" && git init -q -b ci-logs && git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "logs for $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ci-logs
