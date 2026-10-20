@@ -29,12 +29,16 @@ jobs:
         with: { path: manix }
       - name: Builder user, AUR helper, systemctl shim
         run: |
-          useradd -m builder
-          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
-          # no systemd in the container: the script's `systemctl enable/disable` become no-ops
-          printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/systemctl && chmod +x /usr/local/bin/systemctl
-          chown -R builder: manix
-          sudo -u builder bash -c 'cd ~ && git clone -q https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si --noconfirm' 2>&1 | tee out/yay.log
+          set -o pipefail
+          {
+          set -x
+            useradd -m builder
+            echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+            # no systemd in the container: the script's `systemctl enable/disable` become no-ops
+            printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/systemctl && chmod +x /usr/local/bin/systemctl
+            chown -R builder: manix
+            sudo -u builder bash -c 'cd ~ && git clone -q https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si --noconfirm'
+          } 2>&1 | tee out/setup.log
       - name: Run the script (greeter part)
         run: sudo -u builder bash -c 'cd manix && ./scripts/manjaro-install.sh --greetd-only' 2>&1 | tee out/script.log
       - name: Check what it installed
