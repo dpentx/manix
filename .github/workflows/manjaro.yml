@@ -56,7 +56,7 @@ jobs:
           cmd=$(sed -n 's/^command = "\(.*\)"$/\1/p' /etc/greetd/config.toml)
           echo "command: $cmd"
           sudo -u greeter env XDG_RUNTIME_DIR=/tmp/xdg WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 \
-            WLR_RENDERER=gles2 LIBGL_ALWAYS_SOFTWARE=1 sh -c "$cmd" > out/greeter.log 2>&1 &
+            WLR_RENDERER=pixman QT_QUICK_BACKEND=software sh -c "$cmd" > out/greeter.log 2>&1 &
           sleep 25
           # still running = it did not die on startup
           pgrep -u greeter -f 'quickshell -p /opt/qs-niri/greeter.qml'
