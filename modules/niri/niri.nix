@@ -74,6 +74,16 @@
         place-within-backdrop true
     }
 
+    // Shell panels blur everything below them (apps and other panels), not just the wallpaper:
+    // niri's blur is "xray" by default and only samples the backdrop, so a panel over another panel
+    // or an app showed the wallpaper through it.
+    layer-rule {
+        match namespace="^quickshell"
+        background-effect {
+            xray false
+        }
+    }
+
     prefer-no-csd
 
     screenshot-path "~/Pictures/Screenshots/screenshot-%Y-%m-%d_%H-%M-%S.png"
