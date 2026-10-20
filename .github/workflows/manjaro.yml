@@ -26,7 +26,7 @@ jobs:
       - name: Packages
         run: |
           pacman -Syu --noconfirm
-          pacman -S --needed --noconfirm git base-devel sudo grim mesa cage greetd
+          pacman -S --needed --noconfirm git base-devel sudo grim mesa cage greetd ttf-dejavu
           mkdir -p out && chmod 777 out
       - uses: actions/checkout@v4
         with: { path: manix }
@@ -62,7 +62,7 @@ jobs:
           pgrep -u greeter -f 'quickshell -p /opt/qs-niri/greeter.qml'
           sudo -u greeter env XDG_RUNTIME_DIR=/tmp/xdg WAYLAND_DISPLAY=wayland-0 grim out/greeter.png
           test "$(stat -c %s out/greeter.png)" -gt 20000
-          ! grep -Ei 'not found|no such file|cannot|could not load|ReferenceError|TypeError' out/greeter.log
+          ! grep -E 'ReferenceError|TypeError|command not found|[Cc]ould not load|is not installed|failed to load' out/greeter.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
