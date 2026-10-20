@@ -83,7 +83,7 @@ vt = 1
 
 [default_session]
 user = "greeter"
-command = "/usr/bin/cage -s -- /usr/bin/env QS_GREETER_USER=$USER QS_GREETER_CMD=niri-session /usr/bin/quickshell -p $QS/greeter.qml"
+command = "/usr/bin/cage -s -d -- /usr/bin/env QS_GREETER_USER=$USER QS_GREETER_CMD=niri-session /usr/bin/quickshell -p $QS/greeter.qml"
 TOML
   sudo systemctl disable sddm 2>/dev/null || true
   sudo systemctl enable greetd
