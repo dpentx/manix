@@ -1,13 +1,12 @@
-{ config, inputs, pkgs, lib, ... }:
+{ config, inputs, pkgs, ... }:
 
 {
   xdg.configFile."niri/config.kdl".text = ''
     input {
         keyboard {
             xkb {
-                // Turkish Q (first, default) and Turkish F; Mod+Space switches, the bar shows TR for both
-                layout "tr,tr"
-                variant "intl,f"
+                layout "tr"
+                variant "intl"
             }
             repeat-delay 300
             repeat-rate 50
@@ -74,16 +73,6 @@
         place-within-backdrop true
     }
 
-    // Shell panels blur everything below them (apps and other panels), not just the wallpaper:
-    // niri's blur is "xray" by default and only samples the backdrop, so a panel over another panel
-    // or an app showed the wallpaper through it.
-    layer-rule {
-        match namespace="^quickshell"
-        background-effect {
-            xray false
-        }
-    }
-
     prefer-no-csd
 
     screenshot-path "~/Pictures/Screenshots/screenshot-%Y-%m-%d_%H-%M-%S.png"
@@ -118,7 +107,6 @@
         Mod+Return  { spawn "kitty"; }
         Mod+D { spawn "sh" "-c" "touch /tmp/qs-launcher"; }
         Mod+S { spawn "sh" "-c" "touch /tmp/qs-systools"; }
-        Mod+Space   { switch-layout "next"; }
         Mod+Q       { close-window; }
         Mod+Shift+E { quit skip-confirmation=true; }
 
@@ -183,15 +171,5 @@
         match app-id="org.gnome.Nautilus"
         default-column-width { proportion 0.5; }
     }
-
-    // Keyboard layouts chosen in qs-niri's Settings > Shell > Keyboard. Last on purpose: it overrides the
-    // xkb block above. Absolute path, since config.kdl itself is a symlink into the Nix store.
-    include "${config.xdg.configHome}/niri/qs-keyboard.kdl"
-  '';
-
-  # The include must exist or niri rejects the config; the shell rewrites the file, never replace it here.
-  home.activation.qsKeyboardKdl = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    f="${config.xdg.configHome}/niri/qs-keyboard.kdl"
-    [ -e "$f" ] || { mkdir -p "$(dirname "$f")"; echo '// qs-niri keyboard layouts (Settings > Shell > Keyboard)' > "$f"; }
   '';
 }

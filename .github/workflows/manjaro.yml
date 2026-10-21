@@ -2,9 +2,9 @@ name: Manjaro install script
 
 on:
   push:
-    paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml]
+    paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml, manjaro/**, flake.nix]
   pull_request:
-    paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml]
+    paths: [scripts/manjaro-install.sh, .github/workflows/manjaro.yml, manjaro/**, flake.nix]
   workflow_dispatch:
 
 permissions:
@@ -23,8 +23,10 @@ jobs:
             accept-flake-config = true
       - name: Evaluate homeConfigurations.manjaro
         run: |
-          git add -N home/manjaro.nix 2>/dev/null || true
+          git add -N manjaro/home.nix 2>/dev/null || true
           nix eval --raw .#homeConfigurations.manjaro.activationPackage.drvPath
+      - name: Evaluate nixosConfigurations.asus (must not be affected by the Manjaro host)
+        run: nix eval --raw .#nixosConfigurations.asus.config.system.build.toplevel.drvPath
 
   # Runs the greeter part of the script on a real Manjaro image, then starts the exact command it
   # wrote into /etc/greetd/config.toml as the `greeter` user inside headless cage and screenshots it.

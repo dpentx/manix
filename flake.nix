@@ -49,7 +49,7 @@
         config.allowUnfree = true;
       };
       extraSpecialArgs = { inherit inputs; };
-      modules = [ ./home/manjaro.nix ];
+      modules = [ ./manjaro/home.nix ];
     };
 
     nixosConfigurations.asus = nixpkgs.lib.nixosSystem {

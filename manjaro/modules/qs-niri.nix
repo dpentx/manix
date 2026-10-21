@@ -1,6 +1,6 @@
 { config, pkgs, inputs, ... }:
 let
-  # nixGL wrapper on non-NixOS hosts (see home/manjaro.nix); a no-op elsewhere.
+  # nixGL wrapper on non-NixOS hosts (see manjaro/home.nix); a no-op elsewhere.
   glWrap = config.lib.nixGL.wrap or (p: p);
 in
 {

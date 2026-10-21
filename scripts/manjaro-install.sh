@@ -41,12 +41,12 @@ touch_conf 'experimental-features = nix-command flakes'
 touch_conf 'trusted-users = root @wheel'
 sudo systemctl restart nix-daemon.service
 
-say "Login name in home/manjaro.nix -> $USER"
-sed -i "s/home.username = \"[^\"]*\"/home.username = \"$USER\"/" "$REPO/home/manjaro.nix"
+say "Login name in manjaro/home.nix -> $USER"
+sed -i "s/home.username = \"[^\"]*\"/home.username = \"$USER\"/" "$REPO/manjaro/home.nix"
 
 # Flakes in a git checkout only see tracked files.
 if git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git -C "$REPO" add -N home/manjaro.nix 2>/dev/null || true
+  git -C "$REPO" add -N manjaro/home.nix 2>/dev/null || true
 fi
 
 say "home-manager switch (first run downloads a lot)"

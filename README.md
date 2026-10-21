@@ -24,7 +24,9 @@ nix run --accept-flake-config home-manager -- switch --flake .#manjaro -b backup
 Then pick the "niri" session in the login screen. Afterwards `rebuild` re-applies the config.
 
 Notes:
-- `home/manjaro.nix` has `home.username = "asus"`; change it if the Manjaro login name differs.
+- `manjaro/home.nix` has `home.username = "asus"`; change it if the Manjaro login name differs.
 - GPU: `nixGL` is set to `mesa` (Intel/AMD). NVIDIA needs the `nixGLNvidia` wrapper, which is evaluated impurely (`--impure`).
 - Not carried over from the NixOS host: greetd, NVIDIA, Steam, zapret, QEMU and the Limine entry.
 - Screen locking with PAM and GPU recording are untested on this host.
+
+Layout: the NixOS host (`nixos/`, `home/home.nix`, `modules/`) and the Manjaro host (`manjaro/`) share nothing but `flake.nix`. The Manjaro host has its own copies of the niri, GTK, shell and terminal modules under `manjaro/modules/`; change them there.

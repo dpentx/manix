@@ -10,11 +10,11 @@
   home.enableNixpkgsReleaseCheck = false;
 
   imports = [
-    ../modules/niri/qs-niri-hm.nix
-    ../modules/config/shell.nix
-    ../modules/config/terminal.nix
-    ../modules/niri/niri.nix
-    ../modules/config/gtk.nix
+    ./modules/qs-niri.nix
+    ./modules/shell.nix
+    ./modules/terminal.nix
+    ./modules/niri.nix
+    ./modules/gtk.nix
   ];
 
   targets.genericLinux = {
@@ -62,7 +62,7 @@
   programs.home-manager.enable = true;
 
   home.file.".config/quickshell-local/scripts/restore-wallpaper.sh" = {
-    source = ../modules/niri/scripts/restore-wallpaper.sh;
+    source = ./modules/restore-wallpaper.sh;
     executable = true;
   };
 }
