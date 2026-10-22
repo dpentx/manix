@@ -51,7 +51,7 @@ fi
 
 say "home-manager switch (first run downloads a lot)"
 # --accept-flake-config must come before home-manager: `nix run` itself builds home-manager and needs the cache.
-HM_CMD="cd '$REPO' && nix run --accept-flake-config home-manager -- switch --flake .#manjaro -b backup --accept-flake-config --override-input qs-niri github:dpentx/qs-niri/$QS_BRANCH"
+HM_CMD="cd '$REPO' && nix run --accept-flake-config home-manager -- switch --flake .#manjaro -b backup --override-input qs-niri github:dpentx/qs-niri/$QS_BRANCH"
 if [ "$HAVE_NIX" -eq 1 ]; then
   bash -c "$HM_CMD"
 else

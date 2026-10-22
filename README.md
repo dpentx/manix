@@ -18,7 +18,7 @@ echo 'trusted-users = root @wheel' | sudo tee -a /etc/nix/nix.conf   # lets the 
 
 # 2. User side
 git clone https://github.com/dpentx/manix && cd manix
-nix run --accept-flake-config home-manager -- switch --flake .#manjaro -b backup --accept-flake-config
+nix run --accept-flake-config home-manager -- switch --flake .#manjaro -b backup
 ```
 
 Then pick the "niri" session in the login screen. Afterwards `rebuild` re-applies the config.
