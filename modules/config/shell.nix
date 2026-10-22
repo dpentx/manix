@@ -107,14 +107,6 @@
         export MOZ_ENABLE_WAYLAND=1
         export NIXOS_OZONE_WL=1
       fi
-      
-      # Welcome message
-      echo ""
-      echo -e "\e[1;36m╔═══════════════════════════════════════╗\e[0m"
-      echo -e "\e[1;36m║\e[0m  \e[1;35mLightweight Niri Build + Manix \e[0m   \e[1;36m║\e[0m"
-      echo -e "\e[1;36m╚═══════════════════════════════════════╝\e[0m"
-      echo -e "\e[1;33m📅 $(date '+%A, %B %d, %Y - %H:%M')\e[0m"
-      echo ""
     '';
   };
 
