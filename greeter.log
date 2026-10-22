@@ -1,0 +1,16 @@
+00:00:00.000 [INFO] [backend/backend.c:342] Loading user-specified backends due to WLR_BACKENDS: headless
+00:00:00.000 [INFO] [backend/headless/backend.c:60] Creating headless backend
+00:00:00.000 [INFO] [util/env.c:25] Loading WLR_RENDERER option: pixman
+00:00:00.000 [INFO] [render/pixman/renderer.c:328] Creating pixman renderer
+00:00:00.000 [INFO] [../cage/cage.c:521] Failed to create wlr_drm_lease_manager_v1
+00:00:00.000 [ERROR] [xwayland/server.c:473] Cannot find Xwayland binary "/usr/bin/Xwayland"
+00:00:00.000 [ERROR] [../cage/cage.c:567] Cannot create XWayland server
+00:00:00.000 [INFO] [backend/headless/backend.c:17] Starting headless backend
+[32m  INFO[0m: Launching config: "/opt/qs-niri/greeter.qml"
+[32m  INFO[0m: Shell ID: "53c5ab972636131992f0bc7340106947" Path ID "53c5ab972636131992f0bc7340106947"
+[32m  INFO[0m: Saving logs to "/tmp/xdg/quickshell/by-id/qp4lnwant/log.qslog"
+[32m  INFO[0m: Configuration Loaded
+[33m  WARN[97m scene[0m: QML FileView at @config/Config.qml[226:5]: Read of //.config/quickshell-local/user.json failed: File does not exist.
+[33m  WARN[97m scene[0m: QML FileView at @config/Config.qml[182:5]: Read of //.config/quickshell/shell.json failed: File does not exist.
+[33m  WARN[97m scene[0m: QML FileView at @services/Pywal.qml[208:5]: Read of //.cache/qs-niri/theme.json failed: File does not exist.
+[33m  WARN[97m scene[0m: QML FileView at @config/Config.qml[226:5]: Read of //.config/quickshell-local/user.json failed: File does not exist.
