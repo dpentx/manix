@@ -153,6 +153,16 @@
         Mod+Shift+Print { screenshot-window; }
         Ctrl+Shift+Print { spawn "sh" "-c" "touch /tmp/qs-record"; }
 
+        // qs-niri panelleri (dosya dokunma ile açılır/kapanır)
+        Mod+V             { spawn "sh" "-c" "touch /tmp/qs-clipboard"; }
+        Mod+L             { spawn "sh" "-c" "touch /tmp/qs-lock"; }
+        Mod+E             { spawn "sh" "-c" "touch /tmp/qs-files"; }
+        Mod+C             { spawn "sh" "-c" "touch /tmp/qs-clock"; }
+        Mod+Shift+C       { spawn "sh" "-c" "touch /tmp/qs-cast"; }
+        Ctrl+Shift+Escape { spawn "sh" "-c" "touch /tmp/qs-taskmanager"; }
+        // hızlı duvar kağıdı değiştirici (bloated profil): Alt+Z açar, Tab sonrakine geçer, Enter uygular
+        Alt+Z             { spawn "sh" "-c" "touch /tmp/qs-wallswitch"; }
+
         // Sıcak köşe yerine bilinçli tetikleyici: Ctrl basılıyken sağ tık
         Ctrl+MouseRight { toggle-overview; }
 
